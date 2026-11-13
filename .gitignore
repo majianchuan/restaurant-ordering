@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+backend/vendor/
+
+# 前端构建产物
+frontend/dist/
+
+# 环境配置（保留示例文件）
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# 运行时生成
+backend/storage/installed.lock
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# 日志与系统 / 编辑器临时文件
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
