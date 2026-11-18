@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { App as AntdApp, Button, Card, Form, Input, Typography } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '../auth/AuthContext';
@@ -46,7 +46,9 @@ export function LoginPage() {
                     <Typography.Title level={2} className="login-title">
                         餐厅点餐系统
                     </Typography.Title>
-                    <span className="login-subtitle">店长 · 厨师 · 收银员 登录入口</span>
+                    <span className="login-subtitle">
+                        店长 · 厨师 · 收银员 · 顾客 登录入口
+                    </span>
                 </div>
 
                 <Form
@@ -94,9 +96,14 @@ export function LoginPage() {
                     </Button>
                 </Form>
 
+                <div className="login-register">
+                    没有顾客账号？<Link to="/register">立即注册</Link>
+                </div>
+
                 <div className="login-hint">
-                    <div>初始店长账号：admin / 123456</div>
-                    <div>顾客无需登录，请扫描餐桌上的二维码点餐</div>
+                    <div>演示账号：admin / chef01 / cashier01 / customer01</div>
+                    <div>初始密码均为 123456；顾客可扫码免登录点餐</div>
+                    <div>登录后可在个人中心查看订单、收藏和评价</div>
                 </div>
             </Card>
         </div>

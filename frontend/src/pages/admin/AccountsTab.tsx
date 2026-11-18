@@ -22,6 +22,7 @@ const ROLE_TAG_COLORS: Record<string, string> = {
     manager: 'gold',
     chef: 'blue',
     cashier: 'green',
+    customer: 'purple',
 };
 
 function randomFourDigits(): string {

@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import type {
+    AdminOrdersResponse,
     CartItemPayload,
     CreateUserPayload,
     DiningTable,
@@ -7,7 +8,11 @@ import type {
     MenuItem,
     MenuItemPayload,
     Order,
+    ProfilePayload,
+    RegisterPayload,
+    Review,
     StaffAccount,
+    StatsResponse,
     TableOrderResponse,
     TableOverview,
     User,
@@ -62,13 +67,33 @@ export function getErrorMessage(error: unknown, fallback = '操作失败，请�
     return fallback;
 }
 
+function queryString(params: Record<string, string | number | undefined>): string {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+            query.set(key, String(value));
+        }
+    });
+    const text = query.toString();
+
+    return text ? `?${text}` : '';
+}
+
 export const authApi = {
     login: async (username: string, password: string): Promise<LoginResponse> => {
         const { data } = await api.post<LoginResponse>('/auth/login', { username, password });
         return data;
     },
+    register: async (payload: RegisterPayload): Promise<LoginResponse> => {
+        const { data } = await api.post<LoginResponse>('/auth/register', payload);
+        return data;
+    },
     me: async (): Promise<User> => {
         const { data } = await api.get<User>('/auth/me');
+        return data;
+    },
+    updateProfile: async (payload: ProfilePayload): Promise<User> => {
+        const { data } = await api.patch<User>('/profile', payload);
         return data;
     },
     changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
@@ -77,8 +102,8 @@ export const authApi = {
 };
 
 export const userApi = {
-    list: async (): Promise<StaffAccount[]> => {
-        const { data } = await api.get<StaffAccount[]>('/users');
+    list: async (params: { role?: string; keyword?: string } = {}): Promise<StaffAccount[]> => {
+        const { data } = await api.get<StaffAccount[]>(`/users${queryString(params)}`);
         return data;
     },
     create: async (payload: CreateUserPayload): Promise<StaffAccount> => {
@@ -109,8 +134,16 @@ export const tableApi = {
 };
 
 export const menuApi = {
-    list: async (): Promise<MenuItem[]> => {
-        const { data } = await api.get<MenuItem[]>('/menu');
+    list: async (params: { category?: string; keyword?: string } = {}): Promise<MenuItem[]> => {
+        const { data } = await api.get<MenuItem[]>(`/menu${queryString(params)}`);
+        return data;
+    },
+    categories: async (): Promise<string[]> => {
+        const { data } = await api.get<string[]>('/menu/categories');
+        return data;
+    },
+    reviews: async (menuItemId: number): Promise<Review[]> => {
+        const { data } = await api.get<Review[]>(`/menu/${menuItemId}/reviews`);
         return data;
     },
     create: async (payload: MenuItemPayload): Promise<MenuItem> => {
@@ -153,6 +186,52 @@ export const orderApi = {
     },
     pay: async (id: number): Promise<Order> => {
         const { data } = await api.post<Order>(`/orders/${id}/pay`);
+        return data;
+    },
+};
+
+export const customerApi = {
+    myOrders: async (): Promise<Order[]> => {
+        const { data } = await api.get<Order[]>('/my/orders');
+        return data;
+    },
+    favorites: async (): Promise<MenuItem[]> => {
+        const { data } = await api.get<MenuItem[]>('/my/favorites');
+        return data;
+    },
+    toggleFavorite: async (menuItemId: number): Promise<{ favorited: boolean }> => {
+        const { data } = await api.post<{ favorited: boolean }>(`/my/favorites/${menuItemId}`);
+        return data;
+    },
+    myReviews: async (): Promise<Review[]> => {
+        const { data } = await api.get<Review[]>('/my/reviews');
+        return data;
+    },
+    createReview: async (
+        orderId: number,
+        payload: { menuItemId: number; rating: number; content: string }
+    ): Promise<Review> => {
+        const { data } = await api.post<Review>(`/my/orders/${orderId}/reviews`, payload);
+        return data;
+    },
+};
+
+export const adminApi = {
+    orders: async (params: {
+        keyword?: string;
+        status?: string;
+        page?: number;
+        pageSize?: number;
+    }): Promise<AdminOrdersResponse> => {
+        const { data } = await api.get<AdminOrdersResponse>(`/admin/orders${queryString(params)}`);
+        return data;
+    },
+    orderDetail: async (id: number): Promise<Order> => {
+        const { data } = await api.get<Order>(`/admin/orders/${id}`);
+        return data;
+    },
+    stats: async (): Promise<StatsResponse> => {
+        const { data } = await api.get<StatsResponse>('/admin/stats');
         return data;
     },
 };

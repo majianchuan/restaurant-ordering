@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { App as AntdApp, Button, Dropdown, Space, type MenuProps } from 'antd';
 import {
+    IdcardOutlined,
     KeyOutlined,
     LogoutOutlined,
     UserOutlined,
@@ -25,12 +26,18 @@ export function AppHeader({ title }: AppHeaderProps) {
     }
 
     const menuItems: MenuProps['items'] = [
+        ...(user.role === 'customer'
+            ? [{ key: 'profile', icon: <IdcardOutlined />, label: '个人中心' }]
+            : []),
         { key: 'password', icon: <KeyOutlined />, label: '修改密码' },
         { type: 'divider' },
         { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
     ];
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+        if (key === 'profile') {
+            navigate('/customer');
+        }
         if (key === 'password') {
             setPasswordOpen(true);
         }

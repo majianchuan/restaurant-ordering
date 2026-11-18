@@ -9,6 +9,7 @@ import {
     InputNumber,
     Modal,
     Popconfirm,
+    Select,
     Space,
     Spin,
     Tag,
@@ -22,12 +23,13 @@ import {
     ReloadOutlined,
     UploadOutlined,
 } from '@ant-design/icons';
-import { assetUrl } from '../../constants';
+import { MENU_CATEGORIES, assetUrl } from '../../constants';
 import { getErrorMessage, menuApi, uploadApi } from '../../api/client';
 import type { MenuItem, MenuItemPayload } from '../../types';
 
 interface MenuFormValues {
     name: string;
+    category: string;
     price: number;
     description?: string;
     imageUrl?: string;
@@ -40,6 +42,7 @@ export function MenuTab() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<MenuItem | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [filterCategory, setFilterCategory] = useState('全部');
     const [form] = Form.useForm<MenuFormValues>();
     const imageUrl = Form.useWatch('imageUrl', form) ?? '';
 
@@ -61,7 +64,12 @@ export function MenuTab() {
     const openCreate = () => {
         setEditing(null);
         form.resetFields();
-        form.setFieldsValue({ name: '', description: '', imageUrl: '' });
+        form.setFieldsValue({
+            name: '',
+            category: '热菜',
+            description: '',
+            imageUrl: '',
+        });
         setModalOpen(true);
     };
 
@@ -69,6 +77,7 @@ export function MenuTab() {
         setEditing(item);
         form.setFieldsValue({
             name: item.name,
+            category: item.category,
             price: Number(item.price),
             description: item.description,
             imageUrl: item.imageUrl,
@@ -86,6 +95,7 @@ export function MenuTab() {
 
         const payload: MenuItemPayload = {
             name: values.name.trim(),
+            category: values.category,
             price: Number(values.price),
             description: values.description?.trim() ?? '',
             imageUrl: values.imageUrl?.trim() ?? '',
@@ -135,6 +145,11 @@ export function MenuTab() {
         },
     };
 
+    const visibleItems =
+        filterCategory === '全部'
+            ? items
+            : items.filter((item) => item.category === filterCategory);
+
     return (
         <div>
             <div className="panel-toolbar">
@@ -145,6 +160,18 @@ export function MenuTab() {
                     </span>
                 </div>
                 <Space>
+                    <Select
+                        value={filterCategory}
+                        style={{ width: 120 }}
+                        onChange={setFilterCategory}
+                        options={[
+                            { value: '全部', label: '全部分类' },
+                            ...MENU_CATEGORIES.map((category) => ({
+                                value: category,
+                                label: category,
+                            })),
+                        ]}
+                    />
                     <Button icon={<ReloadOutlined />} onClick={() => void load()}>
                         刷新
                     </Button>
@@ -158,11 +185,11 @@ export function MenuTab() {
                 <div className="tab-loading">
                     <Spin />
                 </div>
-            ) : items.length === 0 ? (
-                <Empty description="还没有菜品，点击右上角添加" />
+            ) : visibleItems.length === 0 ? (
+                <Empty description="该分类下还没有菜品" />
             ) : (
                 <div className="card-grid menu-manage-grid">
-                    {items.map((item) => (
+                    {visibleItems.map((item) => (
                         <Card
                             key={item.id}
                             className="menu-manage-card"
@@ -207,6 +234,14 @@ export function MenuTab() {
                                 <h3>{item.name}</h3>
                                 <span className="menu-price">¥{item.price}</span>
                             </div>
+                            <Space size={8} wrap>
+                                <Tag color="orange">{item.category}</Tag>
+                                <span className="menu-rating-text">
+                                    {item.reviewCount > 0
+                                        ? `${item.rating.toFixed(1)} 分 · ${item.reviewCount} 条评价`
+                                        : '暂无评价'}
+                                </span>
+                            </Space>
                             <p className="menu-desc">
                                 {item.description || '暂无描述'}
                             </p>
@@ -237,6 +272,19 @@ export function MenuTab() {
                         ]}
                     >
                         <Input placeholder="例如：宫保鸡丁" />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="菜品分类"
+                        name="category"
+                        rules={[{ required: true, message: '请选择菜品分类' }]}
+                    >
+                        <Select
+                            options={MENU_CATEGORIES.map((category) => ({
+                                value: category,
+                                label: category,
+                            }))}
+                        />
                     </Form.Item>
 
                     <Form.Item
