@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 import { AppHeader } from '../components/AppHeader';
 import { getErrorMessage, orderApi } from '../api/client';
 import type { TableOverview } from '../types';
-import { getTableStatus } from '../utils/order';
+import { getCashierStatus } from '../utils/order';
 
 const POLL_INTERVAL = 5000;
 
@@ -49,7 +49,7 @@ export function CashierPage() {
     }, [load]);
 
     const selected = tables.find((table) => table.id === selectedId) ?? null;
-    const selectedStatus = selected ? getTableStatus(selected.order) : null;
+    const selectedStatus = selected ? getCashierStatus(selected.order) : null;
 
     const openTable = (table: TableOverview) => {
         setSelectedId(table.id);
@@ -110,7 +110,7 @@ export function CashierPage() {
                 ) : (
                     <div className="card-grid cashier-grid">
                         {tables.map((table) => {
-                            const status = getTableStatus(table.order);
+                            const status = getCashierStatus(table.order);
 
                             return (
                                 <article
@@ -245,7 +245,7 @@ export function CashierPage() {
                                 <strong>¥{selected.order.totalAmount}</strong>
                             </div>
 
-                            {selected.order.status === 'pending' ? (
+                            {selected.order.status !== 'paid' ? (
                                 <Button
                                     type="primary"
                                     danger

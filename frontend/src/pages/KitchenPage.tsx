@@ -219,7 +219,7 @@ export function KitchenPage() {
                                         ¥{(Number(item.price) * item.quantity).toFixed(2)}
                                     </div>
 
-                                    {selected.order && selected.order.status === 'pending' && (
+                                    {selected.order && selected.order.status !== 'paid' && (
                                         <Button
                                             size="small"                                            type={item.done ? 'default' : 'primary'}
                                             icon={
