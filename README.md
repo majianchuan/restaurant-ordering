@@ -109,8 +109,8 @@ php backend/bin/migrate.php
 # 重置数据库（会删除并重建，慎用）
 php backend/bin/migrate.php --fresh
 
-# 或使用纯 SQL（建库 + 建表 + 种子数据）
-mysql -u root -p < backend/database/init.sql
+# 或使用纯 SQL（建库 + 建表 + 种子数据；Windows 建议指定 utf8mb4）
+mysql --default-character-set=utf8mb4 -u root -p < backend/database/init.sql
 ```
 
 种子数据包含：6 张餐桌、8 道菜、6 笔订单（制作中/待结账/已结账）、1 条评价、2 条收藏。
