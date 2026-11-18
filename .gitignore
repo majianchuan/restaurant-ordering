@@ -14,6 +14,11 @@ backend/.env.*
 backend/storage/installed.lock
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
+!backend/storage/uploads/seed-*.svg
+
+# 本地临时目录与 PPT 渲染中间产物
+.tmp-*
+docs/ppt/*-render*/
 
 # 日志与系统 / 编辑器临时文件
 *.log

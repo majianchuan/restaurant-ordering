@@ -38,7 +38,7 @@ final class Auth
         }
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, username, nickname, role, created_at FROM users WHERE id = ? LIMIT 1'
+            'SELECT id, username, nickname, phone, role, created_at FROM users WHERE id = ? LIMIT 1'
         );
         $stmt->execute([(int) $payload['sub']]);
         $row = $stmt->fetch();
@@ -51,6 +51,7 @@ final class Auth
             'id' => (int) $row['id'],
             'username' => $row['username'],
             'nickname' => $row['nickname'],
+            'phone' => $row['phone'] ?? '',
             'role' => $row['role'],
             'createdAt' => $row['created_at'],
         ];

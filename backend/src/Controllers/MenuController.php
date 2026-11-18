@@ -11,21 +11,84 @@ use App\Support\Str;
 
 final class MenuController
 {
+    public const CATEGORIES = ['热菜', '凉菜', '素菜', '主食', '汤品', '饮品', '其他'];
+
     /**
-     * 客户与员工看到的在售菜单。
-     *
      * @return array<int, array<string, mixed>>
      */
     public static function index(): array
     {
-        $rows = Database::pdo()->query(
-            'SELECT id, name, price, description, image_url, created_at, updated_at
-             FROM menu_items
-             WHERE is_active = 1
-             ORDER BY id'
-        )->fetchAll();
+        $where = ['m.is_active = 1'];
+        $params = [];
 
-        return array_map([self::class, 'map'], $rows);
+        $category = trim((string) ($_GET['category'] ?? ''));
+        if ($category !== '' && in_array($category, self::CATEGORIES, true)) {
+            $where[] = 'm.category = ?';
+            $params[] = $category;
+        }
+
+        $keyword = trim((string) ($_GET['keyword'] ?? ''));
+        if ($keyword !== '') {
+            $where[] = 'm.name LIKE ?';
+            $params[] = '%' . $keyword . '%';
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT m.id, m.name, m.category, m.price, m.description, m.image_url,
+                    m.created_at, m.updated_at,
+                    (SELECT COALESCE(ROUND(AVG(r.rating), 1), 0)
+                       FROM reviews r WHERE r.menu_item_id = m.id) AS rating,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.menu_item_id = m.id) AS review_count
+             FROM menu_items m
+             WHERE ' . implode(' AND ', $where) . '
+             ORDER BY m.id'
+        );
+        $stmt->execute($params);
+
+        return array_map([self::class, 'map'], $stmt->fetchAll());
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function categories(): array
+    {
+        return self::CATEGORIES;
+    }
+
+    /**
+     * 某个菜品的公开评价列表。
+     *
+     * @param array<string, string> $params
+     * @return array<int, array<string, mixed>>
+     */
+    public static function reviews(array $params): array
+    {
+        $id = (int) ($params['id'] ?? 0);
+
+        $stmt = Database::pdo()->prepare('SELECT id FROM menu_items WHERE id = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$id]);
+        if ($stmt->fetchColumn() === false) {
+            throw new HttpException(404, '菜品不存在');
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT r.id, r.rating, r.content, r.created_at, u.nickname
+             FROM reviews r
+             INNER JOIN users u ON u.id = r.user_id
+             WHERE r.menu_item_id = ?
+             ORDER BY r.created_at DESC
+             LIMIT 50'
+        );
+        $stmt->execute([$id]);
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id'],
+            'rating' => (int) $row['rating'],
+            'content' => $row['content'],
+            'nickname' => $row['nickname'],
+            'createdAt' => $row['created_at'],
+        ], $stmt->fetchAll());
     }
 
     /**
@@ -36,8 +99,15 @@ final class MenuController
         $data = self::validate();
 
         $pdo = Database::pdo();
-        $pdo->prepare('INSERT INTO menu_items (name, price, description, image_url) VALUES (?, ?, ?, ?)')
-            ->execute([$data['name'], $data['price'], $data['description'], $data['imageUrl']]);
+        $pdo->prepare(
+            'INSERT INTO menu_items (name, category, price, description, image_url) VALUES (?, ?, ?, ?, ?)'
+        )->execute([
+            $data['name'],
+            $data['category'],
+            $data['price'],
+            $data['description'],
+            $data['imageUrl'],
+        ]);
 
         return self::find((int) $pdo->lastInsertId());
     }
@@ -59,8 +129,15 @@ final class MenuController
         }
 
         $pdo->prepare(
-            'UPDATE menu_items SET name = ?, price = ?, description = ?, image_url = ? WHERE id = ?'
-        )->execute([$data['name'], $data['price'], $data['description'], $data['imageUrl'], $id]);
+            'UPDATE menu_items SET name = ?, category = ?, price = ?, description = ?, image_url = ? WHERE id = ?'
+        )->execute([
+            $data['name'],
+            $data['category'],
+            $data['price'],
+            $data['description'],
+            $data['imageUrl'],
+            $id,
+        ]);
 
         return self::find($id);
     }
@@ -91,7 +168,14 @@ final class MenuController
     private static function find(int $id): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT id, name, price, description, image_url, created_at, updated_at FROM menu_items WHERE id = ?'
+            'SELECT m.id, m.name, m.category, m.price, m.description, m.image_url,
+                    m.created_at, m.updated_at,
+                    (SELECT COALESCE(ROUND(AVG(r.rating), 1), 0)
+                       FROM reviews r WHERE r.menu_item_id = m.id) AS rating,
+                    (SELECT COUNT(*) FROM reviews r WHERE r.menu_item_id = m.id) AS review_count
+             FROM menu_items m
+             WHERE m.id = ?
+             LIMIT 1'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
@@ -104,7 +188,7 @@ final class MenuController
     }
 
     /**
-     * @return array{name: string, price: string, description: string, imageUrl: string}
+     * @return array{name: string, category: string, price: string, description: string, imageUrl: string}
      */
     private static function validate(): array
     {
@@ -116,6 +200,11 @@ final class MenuController
         }
         if (Str::length($name) > 100) {
             throw new HttpException(422, '菜品名称不能超过 100 个字符');
+        }
+
+        $category = trim((string) ($body['category'] ?? '热菜'));
+        if (!in_array($category, self::CATEGORIES, true)) {
+            throw new HttpException(422, '请选择正确的菜品分类');
         }
 
         $priceRaw = $body['price'] ?? null;
@@ -148,6 +237,7 @@ final class MenuController
 
         return [
             'name' => $name,
+            'category' => $category,
             'price' => number_format($price, 2, '.', ''),
             'description' => $description,
             'imageUrl' => $imageUrl,
@@ -158,14 +248,17 @@ final class MenuController
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private static function map(array $row): array
+    public static function map(array $row): array
     {
         return [
             'id' => (int) $row['id'],
             'name' => $row['name'],
+            'category' => $row['category'] ?? '热菜',
             'price' => number_format((float) $row['price'], 2, '.', ''),
             'description' => $row['description'],
             'imageUrl' => $row['image_url'],
+            'rating' => (float) ($row['rating'] ?? 0),
+            'reviewCount' => (int) ($row['review_count'] ?? 0),
             'createdAt' => $row['created_at'] ?? null,
             'updatedAt' => $row['updated_at'] ?? null,
         ];

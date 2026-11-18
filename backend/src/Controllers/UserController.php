@@ -16,6 +16,7 @@ final class UserController
         'manager' => '店长',
         'chef' => '厨师',
         'cashier' => '收银员',
+        'customer' => '顾客',
     ];
 
     /**
@@ -23,13 +24,31 @@ final class UserController
      */
     public static function index(): array
     {
-        $rows = Database::pdo()->query(
-            "SELECT id, username, nickname, role, created_at
-             FROM users
-             ORDER BY FIELD(role, 'manager', 'chef', 'cashier'), id"
-        )->fetchAll();
+        $role = trim((string) ($_GET['role'] ?? ''));
+        $keyword = trim((string) ($_GET['keyword'] ?? ''));
+        $where = [];
+        $params = [];
 
-        return array_map([self::class, 'map'], $rows);
+        if (in_array($role, ['manager', 'chef', 'cashier', 'customer'], true)) {
+            $where[] = 'role = ?';
+            $params[] = $role;
+        }
+        if ($keyword !== '') {
+            $where[] = '(username LIKE ? OR nickname LIKE ?)';
+            $params[] = '%' . $keyword . '%';
+            $params[] = '%' . $keyword . '%';
+        }
+
+        $sql = 'SELECT id, username, nickname, phone, role, created_at FROM users';
+        if ($where !== []) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+        $sql .= " ORDER BY FIELD(role, 'manager', 'chef', 'cashier', 'customer'), id";
+
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+
+        return array_map([self::class, 'map'], $stmt->fetchAll());
     }
 
     /**
@@ -76,7 +95,7 @@ final class UserController
             ->execute([$username, $nickname, hash('sha256', $password), $role]);
 
         $id = (int) $pdo->lastInsertId();
-        $stmt = $pdo->prepare('SELECT id, username, nickname, role, created_at FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT id, username, nickname, phone, role, created_at FROM users WHERE id = ?');
         $stmt->execute([$id]);
 
         return self::map($stmt->fetch());
@@ -122,6 +141,7 @@ final class UserController
             'id' => (int) $row['id'],
             'username' => $row['username'],
             'nickname' => $row['nickname'],
+            'phone' => $row['phone'] ?? '',
             'role' => $row['role'],
             'roleLabel' => self::ROLE_LABELS[$row['role']] ?? $row['role'],
             'createdAt' => $row['created_at'] ?? null,

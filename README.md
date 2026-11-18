@@ -1,76 +1,121 @@
-# Restaurant Ordering / 餐厅点餐系统
+# 餐厅点餐系统 / Restaurant Ordering System
 
-用于餐厅在线点餐的功能演示项目。前后端分离，前端为 React SPA，后端为原生 PHP 8 的 RESTful API，数据库为 MySQL。
+> 2026 秋季《Web数据库技术》课程大作业 · 最终成品
+>
+> 前后端分离 · 扫码点餐 · 四角色协同 · 33 个 REST 接口 · 7 张业务表 · 35 条接口测试
 
-## 技术栈
+餐厅点餐系统面向小型餐厅堂食场景，打通“店长配置 → 顾客扫码点餐 → 后厨制作 → 收银结账 → 数据统计”的完整业务闭环。顾客扫码即可点餐；注册顾客可以查看历史订单、收藏菜品和发表评价；店长、厨师、收银员分别使用独立工作台。
 
-- 前端：Vite + pnpm + React 18 + TypeScript + Ant Design 5 + React Router 6 + Axios
-- 后端：PHP 8.5（无第三方依赖，自行实现路由、JWT、PDO 数据访问）
-- 数据库：MySQL（utf8mb4）
-- 认证：JWT（HS256，有效期约 10 年，实现“永久登录”）
-- 密码：数据库中存储 SHA-256 哈希值
+![顾客点餐页](docs/assets/order.png)
+![店长数据概览](docs/assets/admin-dashboard.png)
 
-## 目录结构
+## 1. 功能概览
+
+| 角色 | 入口 | 核心功能 |
+| --- | --- | --- |
+| 店长 | `/admin` | 经营概览、订单检索与详情、账户管理、餐桌管理、菜单管理、图片上传 |
+| 厨师 | `/kitchen` | 所有桌台卡片、已做/未做数量、明细抽屉、逐菜标记做好/撤销 |
+| 收银员 | `/cashier` | 待结账桌台、金额汇总、订单明细、结账 |
+| 顾客 | `/order/{二维码编码}`、`/customer` | 扫码点餐、数量增减、提交/覆盖、收藏、查看评价、个人中心 |
+
+- **认证**：员工与顾客登录、顾客自助注册、退出、修改密码、个人资料编辑。
+- **订单**：同一桌最多一个未结账订单；后提交覆盖前一次内容，数量未变的菜品保留已做状态。
+- **状态机**：`pending`（制作中）→ `served`（已上齐/待结账）→ `paid`（已结账）。
+- **互动**：收藏菜品、按“订单 + 菜品”发表评分与文字评价。
+- **统计**：今日营业额/订单、近 7 天趋势、热销菜品、最新评价、状态统计（ECharts）。
+- **多端**：顾客页每 5 秒轮询同步；后厨/收银每 5 秒刷新。
+- **安全**：JWT、后端角色守卫、PDO 预处理、SHA-256 密码哈希、上传白名单、统一错误码。
+
+## 2. 技术栈
+
+- 前端：Vite 6 + React 18 + TypeScript 5.7 + Ant Design 5 + React Router 6 + Axios + ECharts 6
+- 后端：PHP 8.5（原生，无框架依赖；自行实现路由、JWT、PDO 数据访问）
+- 数据库：MySQL 8.0+（utf8mb4 / InnoDB）
+- 认证：JWT HS256；密码 SHA-256 哈希
+- 部署：PHP 内置 HTTP 服务器 + `start.bat` / `start.sh`，无需 Apache / Nginx
+- 测试：Node.js `fetch` 接口测试（35 条）+ Playwright 页面验收
+
+## 3. 目录结构
 
 ```text
 restaurant-ordering/
-├── frontend/              # 前端项目
+├── backend/
+│   ├── api.php                    # API 入口与 33 条路由
+│   ├── router.php                 # PHP 内置服务器路由（/api + SPA 回退）
+│   ├── bin/migrate.php            # 初始化/重置数据库
+│   ├── database/
+│   │   ├── schema.sql             # 建表脚本（7 张表）
+│   │   ├── seed.sql               # 种子数据
+│   │   └── init.sql               # 建库 + 建表 + 种子数据
 │   ├── src/
-│   └── dist/              # 前端构建输出（已构建）
-├── backend/               # 后端项目
-│   ├── .env               # 数据库与 JWT 配置（明文）
-│   ├── api.php            # API 入口与路由表
-│   ├── router.php         # PHP 内置服务器路由（静态文件 + SPA 回退）
-│   ├── src/               # 应用代码
-│   ├── database/schema.sql
-│   ├── storage/           # 上传图片、安装标记
-│   └── bin/migrate.php    # 手动初始化数据库
-├── start.bat              # Windows 启动脚本
-├── start.sh               # Linux 启动脚本
-└── docs/项目开发文档.md
+│   │   ├── Controllers/           # Auth/User/Table/Menu/Order/Customer/Admin
+│   │   ├── Auth.php               # JWT 与用户上下文
+│   │   ├── Database.php
+│   │   └── Support/Installer.php  # 自动建库、种子数据、演示图片
+│   ├── storage/uploads/           # 上传图片
+│   └── .env.example
+├── frontend/
+│   ├── src/
+│   │   ├── pages/                 # 登录/注册/店长/后厨/收银/顾客/个人中心
+│   │   ├── api/client.ts
+│   │   ├── auth/AuthContext.tsx
+│   │   └── components/AppHeader.tsx
+│   └── dist/                      # 前端构建输出（需构建）
+├── tests/api-test.mjs             # 35 条接口测试
+├── docs/                          # 开发文档、用户手册、过程材料、PPT
+├── start.bat / start.sh
+├── README.md
+└── .gitignore
 ```
 
-## 快速开始
+## 4. 快速开始
 
-### 1. 环境准备
+### 4.1 环境要求
 
-- PHP 8.2+，已启用 `pdo_mysql` 扩展
+- PHP 8.2+（启用 `pdo_mysql`、`mbstring`、`fileinfo`）
 - Node.js 20+ 与 pnpm
-- 可访问的 MySQL 数据库
+- MySQL 8.0+（可远程或本地）
 
-当前环境已按以下配置准备好：
+### 4.2 配置数据库
 
-- PHP：`C:\php\php85`。官方 Windows ZIP 只带 `php.ini-development` / `php.ini-production` 模板，而 PHP 只会自动加载名为 `php.ini` 的文件；`pdo_mysql` 是共享扩展，必须在 `php.ini` 中启用。当前已创建 `C:\php\php85\php.ini` 并启用 `pdo_mysql`（以及用于中文长度校验的 `mbstring` 等扩展）。
-- Node.js：v26.13.1（nvm），pnpm 12
-- MySQL：`172.23.57.15:3306`，账号 `root` / `root`
-
-### 2. 配置数据库连接
-
-数据库连接信息在 `backend/.env` 中（已加入 `.gitignore`，仓库中只保留可提交的 `backend/.env.example`）。若该文件不存在，先复制模板：
+复制模板并按实际环境修改：
 
 ```bash
 cp backend/.env.example backend/.env
 # Windows: copy backend\.env.example backend\.env
 ```
 
-然后按实际环境修改：
-
 ```dotenv
-DB_HOST=172.23.57.15
+JWT_SECRET=please-change-this-secret
+JWT_TTL=315360000
+
+DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=restaurant_ordering
 DB_USERNAME=root
 DB_PASSWORD=root
 ```
 
-首次启动时会自动创建数据库、数据表，并写入演示数据（店长账户、3 张餐桌、6 道菜品）。
-也可以手动执行初始化（可重复执行，不会清空已有数据）：
+`backend/.env` 已加入 `.gitignore`，不要提交真实密码。若使用远程数据库，填写远程地址并放行 3306 端口。
+
+### 4.3 初始化数据库
+
+首次启动会自动建库、建表和写入种子数据；也可手动执行：
 
 ```bash
+# 可重复执行，不会清空已有数据
 php backend/bin/migrate.php
+
+# 重置数据库（会删除并重建，慎用）
+php backend/bin/migrate.php --fresh
+
+# 或使用纯 SQL（建库 + 建表 + 种子数据）
+mysql -u root -p < backend/database/init.sql
 ```
 
-### 3. 构建前端
+种子数据包含：6 张餐桌、8 道菜、6 笔订单（制作中/待结账/已结账）、1 条评价、2 条收藏。
+
+### 4.4 构建前端
 
 ```bash
 cd frontend
@@ -78,9 +123,9 @@ pnpm install
 pnpm build
 ```
 
-> `frontend/dist/` 是构建产物，已加入 `.gitignore`。从 GitHub 克隆项目后需要先执行上述构建命令，`start.bat` / `start.sh` 才能找到前端文件。
+`frontend/dist/` 是构建产物，已被 `.gitignore` 忽略；从仓库克隆后必须先构建，启动脚本才能找到静态文件。
 
-### 4. 启动服务
+### 4.5 启动
 
 Windows：
 
@@ -97,117 +142,131 @@ chmod +x start.sh
 
 浏览器访问 <http://localhost:8000>。
 
-> 启动脚本将 PHP 工作目录设为 `backend/`、Web 根目录设为 `frontend/dist`，在 `0.0.0.0:8000` 上运行。
-> `0.0.0.0` 是**监听地址**（监听所有网卡），不是浏览器访问地址；本机访问 `http://localhost:8000`，
-> 手机或其他局域网设备访问 `http://<电脑局域网IP>:8000`。
-> 后端不使用 Apache / Nginx，直接由 PHP 内置 HTTP 服务器配合 `backend/router.php` 提供服务：
-> `/api/*` 交给 PHP 处理，其余请求返回 `frontend/dist` 中的静态文件，未命中时回退到 `index.html` 以支持 SPA 路由。
+> `0.0.0.0:8000` 是监听地址，不是访问地址。本机用 `localhost`；手机用电脑局域网 IP（如 `http://192.168.1.10:8000`），并放行防火墙 8000 端口。
 
-## 初始账户
+### 4.6 演示账号
 
-| 角色 | 用户名 | 密码 | 说明 |
+| 角色 | 用户名 | 密码 | 入口 |
 | --- | --- | --- | --- |
-| 店长 | `admin` | `123456` | 首次启动自动创建，可创建厨师/收银员账户 |
+| 店长 | `admin` | `123456` | `http://localhost:8000/admin` |
+| 厨师 | `chef01` | `123456` | `http://localhost:8000/kitchen` |
+| 收银员 | `cashier01` | `123456` | `http://localhost:8000/cashier` |
+| 顾客 | `customer01` | `123456` | `http://localhost:8000/customer` |
 
-厨师、收银员账户由店长在“账户管理”中创建。创建时昵称自动填充为“角色名 + 随机 4 位编号”，密码自动填充为 `123456`，均可修改。
+顾客也可以扫码免登录点餐；登录顾客可查看订单、收藏和评价。员工账号由店长在“账户管理”中创建。
 
-## 功能说明
+## 5. 数据库设计
 
-### 店长（`/admin`）
+共 7 张业务表：
 
-- **账户管理**：查看、创建、删除厨师与收银员账户
-- **餐桌管理**：添加/删除餐桌；新增时自动命名为“当前餐桌数量 + 1”数字 + “桌”，重名时继续自增；可修改餐桌名称（不可重名）；可查看每张餐桌的点餐二维码
-- **菜单管理**：添加、编辑、删除菜品，支持图片上传（JPG/PNG/GIF/WEBP，≤5MB）或填写图片 URL
+| 表 | 作用 | 关键约束 |
+| --- | --- | --- |
+| `users` | 员工与顾客账户 | `username` 唯一；角色枚举 `manager/chef/cashier/customer` |
+| `dining_tables` | 餐桌与二维码固定编码 | `public_code` 唯一；`name` 唯一 |
+| `menu_items` | 菜品、分类、图片 | `is_active` 软删除；分类、价格校验 |
+| `orders` | 订单主表 | `pending_table_id` 唯一，保证每桌最多一个未结账订单 |
+| `order_items` | 订单明细 | `(order_id, menu_item_id)` 唯一；`is_done` |
+| `favorites` | 收藏 | `(user_id, menu_item_id)` 唯一 |
+| `reviews` | 评价 | `(order_id, menu_item_id)` 唯一；评分 1–5 |
 
-二维码内容为 `http://<访问地址>/order/<餐桌固定编码>`。编码在创建餐桌时生成，修改餐桌名称不会改变编码，因此已打印的二维码不会失效。
+金额不冗余存储，由 `order_items.quantity × menu_items.price` 实时汇总；订单、明细、收藏、评价通过外键保证引用完整性。完整 ER 图、字段、索引与外键见开发文档第 4 章。
 
-> 若要让手机扫码访问，请使用电脑的局域网 IP 打开本系统（例如 `http://192.168.1.10:8000`）后再展示/打印二维码；
-> 使用 `localhost` 生成的二维码只能在电脑本机打开。
+## 6. API 一览
 
-### 厨师（`/kitchen`）
-
-- 多列卡片展示所有餐桌，卡片显示餐桌名、点餐状态、已做/未做菜品数量
-- 未做菜品大于 0 时卡片为橙色；全部做好为绿色；已结账为灰色
-- 点击卡片查看点餐明细，可标记单个菜品“做好”或撤销
-
-### 收银员（`/cashier`）
-
-- 多列卡片展示所有餐桌的点餐状态与金额
-- 点击卡片查看点餐明细，可对未结账订单执行“结账”
-- 结账后订单状态变为已结账，所有菜品视为已做好，已做/未做数量均显示为 0
-
-### 客户（扫描餐桌二维码）
-
-- 无需登录，扫码进入该桌点餐页
-- 菜单卡片展示名称、价格、描述、图片，可增减每样菜的数量（0–99）
-- 点击“提交订单”即可下单；提交后仍可继续修改，再次提交会覆盖该桌当前未结账订单
-- 多台设备同时点餐时，页面每 5 秒同步一次；有人提交新内容时会提示，继续提交将覆盖先前内容
-
-## 开发模式
-
-后端（`backend/` 目录下）：
-
-```bash
-cd backend
-php -S 0.0.0.0:8000 -t ../frontend/dist router.php
-```
-
-前端（`frontend/` 目录下）：
-
-```bash
-pnpm dev
-```
-
-开发环境前端访问 `http://localhost:5173`，API 根路径为 `http://localhost:8000/api`；
-生产环境 API 根路径为 `/api`。开发模式与生产模式已按此区分（见 `frontend/src/api/client.ts`）。
-
-## API 一览
-
-所有接口以 `/api` 为前缀，除公开接口外均需请求头 `Authorization: Bearer <token>`。
+Base URL：开发环境 `http://localhost:8000/api`，生产环境 `/api`。除公开接口外，请求头需带 `Authorization: Bearer <token>`。
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
 | POST | `/auth/login` | 公开 | 登录，返回 JWT |
+| POST | `/auth/register` | 公开 | 顾客注册并自动登录 |
 | GET | `/auth/me` | 登录用户 | 当前用户信息 |
+| PATCH | `/profile` | 登录用户 | 修改昵称/手机号 |
 | POST | `/auth/password` | 登录用户 | 修改密码 |
-| GET | `/users` | 店长 | 账户列表 |
+| GET | `/users` | 店长 | 账户列表（角色/关键词筛选） |
 | POST | `/users` | 店长 | 创建厨师/收银员 |
 | DELETE | `/users/{id}` | 店长 | 删除账户 |
 | GET | `/tables` | 店长 | 餐桌列表 |
 | POST | `/tables` | 店长 | 新增餐桌（自动命名） |
 | PATCH | `/tables/{id}` | 店长 | 修改餐桌名称 |
 | DELETE | `/tables/{id}` | 店长 | 删除餐桌 |
-| GET | `/menu` | 公开 | 在售菜单 |
+| GET | `/tables/overview` | 厨师/收银员 | 餐桌与最近订单 |
+| GET | `/menu` | 公开 | 在售菜单（分类/关键词筛选） |
+| GET | `/menu/categories` | 公开 | 分类列表 |
+| GET | `/menu/{id}/reviews` | 公开 | 菜品评价 |
 | POST | `/menu` | 店长 | 新增菜品 |
 | PUT | `/menu/{id}` | 店长 | 修改菜品 |
 | DELETE | `/menu/{id}` | 店长 | 删除菜品（软删除） |
-| POST | `/uploads` | 店长 | 上传菜品图片 |
+| POST | `/uploads` | 店长 | 上传图片 |
 | GET | `/uploads/{filename}` | 公开 | 读取图片 |
-| GET | `/tables/overview` | 厨师/收银员 | 所有餐桌及最近订单 |
-| GET | `/orders/table/{code}` | 公开 | 扫码获取餐桌与当前未结账订单 |
-| PUT | `/orders/table/{code}` | 公开 | 提交/覆盖订单 |
-| PATCH | `/order-items/{id}` | 厨师 | 标记菜品是否做好 |
+| GET | `/orders/table/{code}` | 公开 | 扫码读取当前订单 |
+| PUT | `/orders/table/{code}` | 公开（顾客令牌可选） | 提交/覆盖订单 |
+| PATCH | `/order-items/{id}` | 厨师 | 标记菜品做好 |
 | POST | `/orders/{id}/pay` | 收银员 | 结账 |
+| GET | `/my/orders` | 顾客 | 我的订单 |
+| GET | `/my/favorites` | 顾客 | 我的收藏 |
+| POST | `/my/favorites/{id}` | 顾客 | 收藏/取消收藏 |
+| GET | `/my/reviews` | 顾客 | 我的评价 |
+| POST | `/my/orders/{id}/reviews` | 顾客 | 发表评价 |
+| GET | `/admin/orders` | 店长 | 订单搜索/筛选/分页 |
+| GET | `/admin/orders/{id}` | 店长 | 订单详情 |
+| GET | `/admin/stats` | 店长 | 经营统计 |
 
-## 数据库设计
+完整请求/响应示例与错误码见 [开发文档](docs/开发文档-餐厅点餐系统.docx) 第 5 章。
 
-- `users`：员工账户，`password_hash` 存 SHA-256，角色为 `manager` / `chef` / `cashier`
-- `dining_tables`：餐桌，`public_code` 为二维码固定编码，`name` 唯一
-- `menu_items`：菜品，`is_active` 用于软删除以保留历史订单引用
-- `orders`：订单，状态 `pending` / `paid`；`pending_table_id` 配合唯一索引保证每桌同时最多一个未结账订单
-- `order_items`：订单明细，`(order_id, menu_item_id)` 唯一，`is_done` 表示是否做好
+## 7. 测试
 
-金额不冗余存储，由 `order_items.quantity × menu_items.price` 实时汇总；订单明细仅引用菜品 ID，符合第三范式。
+测试前建议重置为干净种子数据：
 
-## 说明
+```bash
+php backend/bin/migrate.php --fresh
+node tests/api-test.mjs
+```
 
-- 本项目仅用于功能演示与开发测试，未实现生产级的日志、监控、容灾、自动化测试与 CI/CD。
-- 修改密码时要求输入两遍新密码，不限制密码复杂度。
-- 顾客提交新订单会覆盖该桌当前未结账订单；数量未变化的菜品会保留原有的“已做好”状态，数量变化的菜品重置为未做。
+本次执行结果：**35 条用例全部通过，0 失败**。覆盖：
 
-## 常见问题
+- 正常：登录、注册、资料修改、餐桌/菜品创建、上传、点餐、覆盖、标记、结账、评价、收藏、统计
+- 异常：错误密码、重复用户名、非法用户名、空订单、非法分类、重复结账、重复评价、无效二维码
+- 权限：未登录、顾客越权、厨师越权结账
+- 安全：SQL 注入登录、非图片上传
 
-- **端口 8000 被占用**：关闭占用端口的程序，或同时修改 `start.bat` / `start.sh` 中的端口与前端 `frontend/src/api/client.ts` 中的 API 地址后重新构建。
-- **数据库被手动删除或重置**：删除 `backend/storage/installed.lock`，然后执行 `php backend/bin/migrate.php`，再次启动即可重新建表并写入演示数据。
-- **页面显示“无法连接服务器”**：确认后端已启动；开发模式下前端默认访问 `http://localhost:8000/api`。
-- **手机扫码打不开**：确认手机与电脑在同一局域网、系统使用电脑的局域网 IP 访问，并允许 Windows 防火墙放行 8000 端口。
+测试明细与用例表见 [开发文档](docs/开发文档-餐厅点餐系统.docx) 第 6 章。
+
+## 8. 安全说明
+
+- 密码 SHA-256 哈希存储，不保存明文；JWT HS256 签名并校验有效期。
+- 所有数据库访问使用 PDO 预处理，避免 SQL 注入。
+- 后端按路由声明角色，前端路由守卫只做体验层拦截；越权请求返回 403。
+- 上传仅允许 JPG/PNG/GIF/WEBP，校验 `getimagesize` 与 5MB 大小限制，随机文件名。
+- React 默认转义输出，未使用 `dangerouslySetInnerHTML`；服务端对长度、枚举、评分等做校验。
+
+## 9. 文档与交付物
+
+| 交付物 | 路径 |
+| --- | --- |
+| 开发文档（需求/设计/ER/API/测试/部署） | [docs/开发文档-餐厅点餐系统.docx](docs/开发文档-餐厅点餐系统.docx) |
+| 用户使用手册 | [docs/用户使用手册-餐厅点餐系统.docx](docs/用户使用手册-餐厅点餐系统.docx) |
+| 项目选题提案表 | [docs/01-项目选题提案表.docx](docs/01-项目选题提案表.docx) |
+| 分工与 Git 贡献表 | [docs/02-分工与Git贡献表.docx](docs/02-分工与Git贡献表.docx) |
+| 组内互评表 | [docs/03-组内互评表.docx](docs/03-组内互评表.docx) |
+| 挑战功能说明表 | [docs/04-挑战功能说明表.docx](docs/04-挑战功能说明表.docx) |
+| 最终汇报 PPT（HTML 放映 / PPTX） | [docs/ppt/餐厅点餐系统-最终汇报.html](docs/ppt/餐厅点餐系统-最终汇报.html) · [.pptx](docs/ppt/餐厅点餐系统-最终汇报.pptx) |
+| 原始项目开发文档 | [docs/项目开发文档.md](docs/项目开发文档.md) |
+
+## 10. 常见问题
+
+- **8000 端口被占用**：关闭占用程序，或同时修改启动脚本和前端 API 地址后重新构建。
+- **PHP 报 `could not find driver`**：在 `php.ini` 中启用 `pdo_mysql` 并设置正确的 `extension_dir`。
+- **页面没有数据 / 数据库被删**：执行 `php backend/bin/migrate.php --fresh` 重建。
+- **手机扫码打不开**：用电脑局域网 IP 访问系统后再展示二维码，确认同一网络且防火墙放行 8000。
+- **上传图片失败**：仅支持 JPG/PNG/GIF/WEBP，且不超过 5MB。
+
+## 11. 小组
+
+| 姓名 | 角色 | 主要工作 |
+| --- | --- | --- |
+| 马见川 | 组长 / 后端与架构 | 需求、数据库、接口、JWT、订单状态、联调、文档 |
+| 董睿 | 前端基础 / 店长端 | 前端工程、登录注册、店长后台、账户/餐桌/菜单 |
+| 应一帆 | 顾客端 / 交互 | 点餐、购物车、收藏、评价、二维码、多端同步 |
+| 陈嘉尚 | 后厨 / 收银 / 测试 | 看板、收银、测试、种子数据、部署材料 |
+
+2026 年 11 月
