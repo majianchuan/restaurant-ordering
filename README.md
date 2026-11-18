@@ -89,7 +89,7 @@ cp backend/.env.example backend/.env
 JWT_SECRET=please-change-this-secret
 JWT_TTL=315360000
 
-DB_HOST=127.0.0.1
+DB_HOST=172.23.130.104
 DB_PORT=3306
 DB_DATABASE=restaurant_ordering
 DB_USERNAME=root
