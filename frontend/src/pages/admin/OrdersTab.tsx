@@ -19,8 +19,7 @@ import { adminApi, getErrorMessage } from '../../api/client';
 import type { AdminOrderSummary, Order, OrderStatus } from '../../types';
 
 const STATUS_LABELS: Record<OrderStatus, { text: string; color: string }> = {
-    pending: { text: '待制作', color: 'orange' },
-    served: { text: '待结账', color: 'green' },
+    pending: { text: '未结账', color: 'orange' },
     paid: { text: '已结账', color: 'default' },
 };
 
@@ -84,13 +83,6 @@ export function OrdersTab() {
             width: 110,
         },
         {
-            title: '顾客',
-            dataIndex: 'customerName',
-            key: 'customerName',
-            width: 120,
-            render: (value: string | null) => value || <span className="text-muted">游客</span>,
-        },
-        {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
@@ -149,9 +141,9 @@ export function OrdersTab() {
                             setKeyword(value);
                             setPage(1);
                         }}
-                        placeholder="订单号 / 桌名 / 顾客昵称"
+                        placeholder="订单号 / 桌名"
                         prefix={<SearchOutlined />}
-                        style={{ width: 240 }}
+                        style={{ width: 220 }}
                     />
                     <Select
                         value={status}
@@ -162,8 +154,7 @@ export function OrdersTab() {
                         }}
                         options={[
                             { value: '', label: '全部状态' },
-                            { value: 'pending', label: '待制作' },
-                            { value: 'served', label: '待结账' },
+                            { value: 'pending', label: '未结账' },
                             { value: 'paid', label: '已结账' },
                         ]}
                     />
@@ -204,9 +195,6 @@ export function OrdersTab() {
                         <Descriptions column={2} size="small" bordered>
                             <Descriptions.Item label="桌台">
                                 {detail.tableName ?? detail.tableId}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="顾客">
-                                {detail.customerName || '游客'}
                             </Descriptions.Item>
                             <Descriptions.Item label="状态">
                                 <Tag color={STATUS_LABELS[detail.status].color}>

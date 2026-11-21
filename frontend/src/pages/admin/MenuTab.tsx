@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     App as AntdApp,
     Button,
@@ -19,17 +19,19 @@ import {
 import {
     DeleteOutlined,
     EditOutlined,
+    PictureOutlined,
     PlusOutlined,
     ReloadOutlined,
+    TagsOutlined,
     UploadOutlined,
 } from '@ant-design/icons';
-import { MENU_CATEGORIES, assetUrl } from '../../constants';
+import { assetUrl } from '../../constants';
 import { getErrorMessage, menuApi, uploadApi } from '../../api/client';
-import type { MenuItem, MenuItemPayload } from '../../types';
+import type { MenuCategory, MenuItem, MenuItemPayload } from '../../types';
 
 interface MenuFormValues {
     name: string;
-    category: string;
+    categoryId: number;
     price: number;
     description?: string;
     imageUrl?: string;
@@ -38,18 +40,29 @@ interface MenuFormValues {
 export function MenuTab() {
     const { message } = AntdApp.useApp();
     const [items, setItems] = useState<MenuItem[]>([]);
+    const [categories, setCategories] = useState<MenuCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<MenuItem | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const [filterCategory, setFilterCategory] = useState('全部');
+    const [filterCategory, setFilterCategory] = useState<number | 'all'>('all');
+    const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+    const [categoryName, setCategoryName] = useState('');
+    const [categorySubmitting, setCategorySubmitting] = useState(false);
+    const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+    const [editingCategoryName, setEditingCategoryName] = useState('');
     const [form] = Form.useForm<MenuFormValues>();
     const imageUrl = Form.useWatch('imageUrl', form) ?? '';
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            setItems(await menuApi.list());
+            const [nextItems, nextCategories] = await Promise.all([
+                menuApi.list(),
+                menuApi.categories(),
+            ]);
+            setItems(nextItems);
+            setCategories(nextCategories);
         } catch (error) {
             message.error(getErrorMessage(error));
         } finally {
@@ -62,11 +75,16 @@ export function MenuTab() {
     }, [load]);
 
     const openCreate = () => {
+        if (categories.length === 0) {
+            message.warning('请先在“管理分类”中添加一个菜品分类');
+            return;
+        }
+
         setEditing(null);
         form.resetFields();
         form.setFieldsValue({
             name: '',
-            category: '热菜',
+            categoryId: categories[0].id,
             description: '',
             imageUrl: '',
         });
@@ -77,7 +95,7 @@ export function MenuTab() {
         setEditing(item);
         form.setFieldsValue({
             name: item.name,
-            category: item.category,
+            categoryId: item.categoryId,
             price: Number(item.price),
             description: item.description,
             imageUrl: item.imageUrl,
@@ -95,7 +113,7 @@ export function MenuTab() {
 
         const payload: MenuItemPayload = {
             name: values.name.trim(),
-            category: values.category,
+            categoryId: values.categoryId,
             price: Number(values.price),
             description: values.description?.trim() ?? '',
             imageUrl: values.imageUrl?.trim() ?? '',
@@ -122,7 +140,7 @@ export function MenuTab() {
     const handleRemove = async (item: MenuItem) => {
         try {
             await menuApi.remove(item.id);
-            message.success('菜品已删除');
+            message.success('菜品及其图片已删除');
             await load();
         } catch (error) {
             message.error(getErrorMessage(error));
@@ -130,7 +148,7 @@ export function MenuTab() {
     };
 
     const uploadProps: UploadProps = {
-        accept: 'image/*',
+        accept: 'image/jpeg,image/png,image/gif,image/webp',
         showUploadList: false,
         customRequest: async ({ file, onSuccess, onError }) => {
             try {
@@ -145,35 +163,93 @@ export function MenuTab() {
         },
     };
 
-    const visibleItems =
-        filterCategory === '全部'
-            ? items
-            : items.filter((item) => item.category === filterCategory);
+    const visibleItems = useMemo(
+        () =>
+            filterCategory === 'all'
+                ? items
+                : items.filter((item) => item.categoryId === filterCategory),
+        [filterCategory, items]
+    );
+
+    const addCategory = async () => {
+        const name = categoryName.trim();
+        if (!name) {
+            message.warning('请输入分类名称');
+            return;
+        }
+
+        setCategorySubmitting(true);
+        try {
+            await menuApi.createCategory(name);
+            setCategoryName('');
+            message.success('分类已添加');
+            await load();
+        } catch (error) {
+            message.error(getErrorMessage(error));
+        } finally {
+            setCategorySubmitting(false);
+        }
+    };
+
+    const saveCategory = async (category: MenuCategory) => {
+        const name = editingCategoryName.trim();
+        if (!name) {
+            message.warning('请输入分类名称');
+            return;
+        }
+
+        setCategorySubmitting(true);
+        try {
+            await menuApi.updateCategory(category.id, name);
+            setEditingCategoryId(null);
+            setEditingCategoryName('');
+            message.success('分类已重命名');
+            await load();
+        } catch (error) {
+            message.error(getErrorMessage(error));
+        } finally {
+            setCategorySubmitting(false);
+        }
+    };
+
+    const removeCategory = async (category: MenuCategory) => {
+        try {
+            await menuApi.removeCategory(category.id);
+            if (filterCategory === category.id) {
+                setFilterCategory('all');
+            }
+            message.success('分类已删除');
+            await load();
+        } catch (error) {
+            message.error(getErrorMessage(error));
+        }
+    };
 
     return (
         <div>
             <div className="panel-toolbar">
                 <div>
                     <h2>菜单管理</h2>
-                    <span className="toolbar-subtitle">
-                        共 {items.length} 道在售菜品
-                    </span>
+                    <span className="toolbar-subtitle">共 {items.length} 道在售菜品</span>
                 </div>
                 <Space>
                     <Select
                         value={filterCategory}
-                        style={{ width: 120 }}
+                        style={{ width: 130 }}
                         onChange={setFilterCategory}
                         options={[
-                            { value: '全部', label: '全部分类' },
-                            ...MENU_CATEGORIES.map((category) => ({
-                                value: category,
-                                label: category,
+                            { value: 'all', label: '全部分类' },
+                            ...categories.map((category) => ({
+                                value: category.id,
+                                label: category.name,
                             })),
                         ]}
                     />
                     <Button icon={<ReloadOutlined />} onClick={() => void load()}>
                         刷新
+                    </Button>
+                    <Button icon={<TagsOutlined />} onClick={() => setCategoryModalOpen(true)}>
+                        管理分类
                     </Button>
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
                         添加菜品
@@ -202,7 +278,9 @@ export function MenuTab() {
                                             loading="lazy"
                                         />
                                     ) : (
-                                        <div className="menu-cover-placeholder">🍽️</div>
+                                        <div className="menu-cover-placeholder">
+                                            <PictureOutlined />
+                                        </div>
                                     )}
                                 </div>
                             }
@@ -218,7 +296,7 @@ export function MenuTab() {
                                 <Popconfirm
                                     key="delete"
                                     title={`删除「${item.name}」？`}
-                                    description="删除后顾客将看不到该菜品。"
+                                    description="删除后顾客将看不到该菜品，同时会删除其图片。"
                                     okText="删除"
                                     cancelText="取消"
                                     okButtonProps={{ danger: true }}
@@ -236,11 +314,6 @@ export function MenuTab() {
                             </div>
                             <Space size={8} wrap>
                                 <Tag color="orange">{item.category}</Tag>
-                                <span className="menu-rating-text">
-                                    {item.reviewCount > 0
-                                        ? `${item.rating.toFixed(1)} 分 · ${item.reviewCount} 条评价`
-                                        : '暂无评价'}
-                                </span>
                             </Space>
                             <p className="menu-desc">
                                 {item.description || '暂无描述'}
@@ -276,13 +349,13 @@ export function MenuTab() {
 
                     <Form.Item
                         label="菜品分类"
-                        name="category"
+                        name="categoryId"
                         rules={[{ required: true, message: '请选择菜品分类' }]}
                     >
                         <Select
-                            options={MENU_CATEGORIES.map((category) => ({
-                                value: category,
-                                label: category,
+                            options={categories.map((category) => ({
+                                value: category.id,
+                                label: category.name,
                             }))}
                         />
                     </Form.Item>
@@ -334,32 +407,110 @@ export function MenuTab() {
                         </div>
                     </Form.Item>
 
-                    <Form.Item
-                        label="图片地址"
-                        name="imageUrl"
-                        validateTrigger="onBlur"
-                        rules={[
-                            {
-                                validator: async (_, value: string | undefined) => {
-                                    if (
-                                        !value ||
-                                        /^https?:\/\//i.test(value) ||
-                                        value.startsWith('/api/uploads/')
-                                    ) {
-                                        return;
-                                    }
-                                    throw new Error(
-                                        '图片地址必须是 http(s) 链接或已上传的图片'
-                                    );
-                                },
-                            },
-                        ]}
-                    >
-                        <Input placeholder="上传后自动填充，也可直接填写图片链接" />
+                    <Form.Item name="imageUrl" hidden>
+                        <Input />
                     </Form.Item>
 
-                    <Tag color="orange">提示：建议上传 JPG / PNG / WEBP 图片，不超过 5MB</Tag>
+                    <Tag color="orange">支持 JPG / PNG / GIF / WEBP，不超过 5MB</Tag>
                 </Form>
+            </Modal>
+
+            <Modal
+                title="管理菜品分类"
+                open={categoryModalOpen}
+                onCancel={() => {
+                    setCategoryModalOpen(false);
+                    setEditingCategoryId(null);
+                }}
+                footer={null}
+                width={480}
+                destroyOnClose
+            >
+                <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
+                    <Input
+                        value={categoryName}
+                        onChange={(event) => setCategoryName(event.target.value)}
+                        placeholder="新分类名称，例如：热菜"
+                        maxLength={20}
+                        onPressEnter={() => void addCategory()}
+                    />
+                    <Button
+                        type="primary"
+                        loading={categorySubmitting}
+                        onClick={() => void addCategory()}
+                    >
+                        添加
+                    </Button>
+                </Space.Compact>
+
+                {categories.length === 0 ? (
+                    <Empty description="还没有分类，请先添加" />
+                ) : (
+                    <div className="category-manage-list">
+                        {categories.map((category) => (
+                            <div className="category-manage-row" key={category.id}>
+                                {editingCategoryId === category.id ? (
+                                    <Input
+                                        value={editingCategoryName}
+                                        onChange={(event) =>
+                                            setEditingCategoryName(event.target.value)
+                                        }
+                                        maxLength={20}
+                                        onPressEnter={() => void saveCategory(category)}
+                                    />
+                                ) : (
+                                    <Tag color="orange">{category.name}</Tag>
+                                )}
+                                <Space size={4}>
+                                    {editingCategoryId === category.id ? (
+                                        <>
+                                            <Button
+                                                type="link"
+                                                size="small"
+                                                loading={categorySubmitting}
+                                                onClick={() => void saveCategory(category)}
+                                            >
+                                                保存
+                                            </Button>
+                                            <Button
+                                                type="link"
+                                                size="small"
+                                                onClick={() => setEditingCategoryId(null)}
+                                            >
+                                                取消
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                type="link"
+                                                size="small"
+                                                onClick={() => {
+                                                    setEditingCategoryId(category.id);
+                                                    setEditingCategoryName(category.name);
+                                                }}
+                                            >
+                                                重命名
+                                            </Button>
+                                            <Popconfirm
+                                                title={`删除分类「${category.name}」？`}
+                                                description="分类下还有菜品时不能删除。"
+                                                okText="删除"
+                                                cancelText="取消"
+                                                okButtonProps={{ danger: true }}
+                                                onConfirm={() => removeCategory(category)}
+                                            >
+                                                <Button type="link" danger size="small">
+                                                    删除
+                                                </Button>
+                                            </Popconfirm>
+                                        </>
+                                    )}
+                                </Space>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </Modal>
         </div>
     );

@@ -6,11 +6,9 @@ import { PageLoading } from './components/PageLoading';
 import { RequireRole } from './components/RequireRole';
 import { ROLE_HOME } from './constants';
 import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
 import { AdminPage } from './pages/AdminPage';
 import { KitchenPage } from './pages/KitchenPage';
 import { CashierPage } from './pages/CashierPage';
-import { CustomerPage } from './pages/CustomerPage';
 import { OrderPage } from './pages/OrderPage';
 
 function HomeRedirect() {
@@ -69,7 +67,6 @@ export default function App() {
                     <AuthProvider>
                         <Routes>
                             <Route path="/login" element={<LoginPage />} />
-                            <Route path="/register" element={<RegisterPage />} />
                             <Route
                                 path="/admin"
                                 element={
@@ -91,14 +88,6 @@ export default function App() {
                                 element={
                                     <RequireRole role="cashier">
                                         <CashierPage />
-                                    </RequireRole>
-                                }
-                            />
-                            <Route
-                                path="/customer"
-                                element={
-                                    <RequireRole role="customer">
-                                        <CustomerPage />
                                     </RequireRole>
                                 }
                             />

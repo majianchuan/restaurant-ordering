@@ -8,14 +8,12 @@ import {
     type ReactNode,
 } from 'react';
 import { authApi, TOKEN_KEY } from '../api/client';
-import type { RegisterPayload, User } from '../types';
+import type { User } from '../types';
 
 interface AuthContextValue {
     user: User | null;
     loading: boolean;
     login: (username: string, password: string) => Promise<User>;
-    register: (payload: RegisterPayload) => Promise<User>;
-    updateUser: (user: User) => void;
     logout: () => void;
 }
 
@@ -62,25 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return data.user;
     }, []);
 
-    const register = useCallback(async (payload: RegisterPayload) => {
-        const data = await authApi.register(payload);
-        localStorage.setItem(TOKEN_KEY, data.token);
-        setUser(data.user);
-        return data.user;
-    }, []);
-
-    const updateUser = useCallback((current: User) => {
-        setUser(current);
-    }, []);
-
     const logout = useCallback(() => {
         localStorage.removeItem(TOKEN_KEY);
         setUser(null);
     }, []);
 
     const value = useMemo(
-        () => ({ user, loading, login, register, updateUser, logout }),
-        [user, loading, login, register, updateUser, logout]
+        () => ({ user, loading, login, logout }),
+        [user, loading, login, logout]
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

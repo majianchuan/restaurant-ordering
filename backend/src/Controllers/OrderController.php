@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
-use App\Auth;
 use App\Database;
 use App\Http\HttpException;
 use App\Http\Request;
-use PDO;
 use Throwable;
 
 final class OrderController
@@ -144,11 +142,6 @@ final class OrderController
             throw new HttpException(422, '部分菜品已下架，请刷新菜单后重试');
         }
 
-        $currentUser = Auth::user();
-        $customerId = $currentUser !== null && $currentUser['role'] === 'customer'
-            ? (int) $currentUser['id']
-            : null;
-
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
@@ -158,7 +151,7 @@ final class OrderController
             $lock->execute([$tableId]);
 
             $stmt = $pdo->prepare(
-                "SELECT * FROM orders WHERE table_id = ? AND status IN ('pending', 'served')
+                "SELECT * FROM orders WHERE table_id = ? AND status = 'pending'
                  ORDER BY id DESC LIMIT 1 FOR UPDATE"
             );
             $stmt->execute([$tableId]);
@@ -177,15 +170,13 @@ final class OrderController
 
                 $pdo->prepare('DELETE FROM order_items WHERE order_id = ?')->execute([$orderId]);
                 $pdo->prepare(
-                    "UPDATE orders
-                     SET customer_id = COALESCE(customer_id, ?), status = 'pending', updated_at = NOW()
-                     WHERE id = ?"
-                )->execute([$customerId, $orderId]);
+                    'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?'
+                )->execute(['pending', $orderId]);
             } else {
                 $pdo->prepare(
-                    "INSERT INTO orders (table_id, customer_id, status, pending_table_id)
-                     VALUES (?, ?, 'pending', ?)"
-                )->execute([$tableId, $customerId, $tableId]);
+                    "INSERT INTO orders (table_id, status, pending_table_id)
+                     VALUES (?, 'pending', ?)"
+                )->execute([$tableId, $tableId]);
                 $orderId = (int) $pdo->lastInsertId();
             }
 
@@ -202,7 +193,6 @@ final class OrderController
                 $insert->execute([$orderId, $menuItemId, $quantity, $done]);
             }
 
-            self::recalculateStatus($pdo, $orderId);
             $pdo->commit();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
@@ -249,7 +239,6 @@ final class OrderController
 
         $pdo->prepare('UPDATE order_items SET is_done = ? WHERE id = ?')
             ->execute([$done ? 1 : 0, $id]);
-        self::recalculateStatus($pdo, (int) $item['order_id']);
 
         $stmt = $pdo->prepare('SELECT status FROM orders WHERE id = ?');
         $stmt->execute([(int) $item['order_id']]);
@@ -290,7 +279,7 @@ final class OrderController
         try {
             $update = $pdo->prepare(
                 "UPDATE orders SET status = 'paid', paid_at = NOW(), pending_table_id = NULL, updated_at = NOW()
-                 WHERE id = ? AND status IN ('pending', 'served')"
+                 WHERE id = ? AND status = 'pending'"
             );
             $update->execute([$id]);
 
@@ -331,65 +320,6 @@ final class OrderController
         }
 
         return $order;
-    }
-
-    /**
-     * 顾客“我的订单”，并附带菜品评价信息。
-     *
-     * @param array<string, string> $params
-     * @return array<int, array<string, mixed>>
-     */
-    public static function myOrders(array $params): array
-    {
-        $user = Auth::requireRole('customer');
-        $pdo = Database::pdo();
-
-        $stmt = $pdo->prepare(
-            'SELECT o.*, t.name AS table_name
-             FROM orders o
-             INNER JOIN dining_tables t ON t.id = o.table_id
-             WHERE o.customer_id = ?
-             ORDER BY o.id DESC
-             LIMIT 100'
-        );
-        $stmt->execute([$user['id']]);
-        $orders = $stmt->fetchAll();
-
-        if ($orders === []) {
-            return [];
-        }
-
-        $orderIds = array_map(static fn (array $row): int => (int) $row['id'], $orders);
-        $itemsByOrder = self::itemsByOrder($orderIds);
-
-        $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
-        $stmt = $pdo->prepare(
-            "SELECT id, order_id, menu_item_id, rating, content, created_at
-             FROM reviews
-             WHERE user_id = ? AND order_id IN ($placeholders)"
-        );
-        $stmt->execute(array_merge([$user['id']], $orderIds));
-        $reviewMap = [];
-        foreach ($stmt->fetchAll() as $review) {
-            $reviewMap[(int) $review['order_id']][(int) $review['menu_item_id']] = [
-                'id' => (int) $review['id'],
-                'rating' => (int) $review['rating'],
-                'content' => $review['content'],
-                'createdAt' => $review['created_at'],
-            ];
-        }
-
-        $result = [];
-        foreach ($orders as $order) {
-            $payload = self::buildOrder($order, $itemsByOrder[(int) $order['id']] ?? []);
-            foreach ($payload['items'] as &$item) {
-                $item['review'] = $reviewMap[(int) $order['id']][$item['menuItemId']] ?? null;
-            }
-            unset($item);
-            $result[] = $payload;
-        }
-
-        return $result;
     }
 
     /**
@@ -434,7 +364,7 @@ final class OrderController
     private static function findActiveOrder(int $tableId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            "SELECT * FROM orders WHERE table_id = ? AND status IN ('pending', 'served')
+            "SELECT * FROM orders WHERE table_id = ? AND status = 'pending'
              ORDER BY id DESC LIMIT 1"
         );
         $stmt->execute([$tableId]);
@@ -449,10 +379,9 @@ final class OrderController
     private static function fetchOrder(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT o.*, t.name AS table_name, u.nickname AS customer_name
+            'SELECT o.*, t.name AS table_name
              FROM orders o
              INNER JOIN dining_tables t ON t.id = o.table_id
-             LEFT JOIN users u ON u.id = o.customer_id
              WHERE o.id = ?
              LIMIT 1'
         );
@@ -464,27 +393,6 @@ final class OrderController
         }
 
         return self::buildOrder($order, self::itemsByOrder([$id])[$id] ?? []);
-    }
-
-    /**
-     * @param PDO $pdo
-     */
-    private static function recalculateStatus(PDO $pdo, int $orderId): void
-    {
-        $stmt = $pdo->prepare('SELECT status FROM orders WHERE id = ? LIMIT 1');
-        $stmt->execute([$orderId]);
-        $status = $stmt->fetchColumn();
-
-        if ($status === false || $status === 'paid') {
-            return;
-        }
-
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM order_items WHERE order_id = ? AND is_done = 0');
-        $stmt->execute([$orderId]);
-        $undone = (int) $stmt->fetchColumn();
-
-        $pdo->prepare('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?')
-            ->execute([$undone === 0 ? 'served' : 'pending', $orderId]);
     }
 
     /**
@@ -559,8 +467,6 @@ final class OrderController
             'id' => (int) $order['id'],
             'tableId' => (int) $order['table_id'],
             'tableName' => $order['table_name'] ?? null,
-            'customerId' => isset($order['customer_id']) ? (int) $order['customer_id'] : null,
-            'customerName' => $order['customer_name'] ?? null,
             'status' => $order['status'],
             'createdAt' => $order['created_at'],
             'updatedAt' => $order['updated_at'],

@@ -68,33 +68,6 @@ body {
         linear-gradient(135deg, #fff7e6 0%, #fff1f0 55%, #ffffff 100%);
 }
 
-.login-decor {
-    position: absolute;
-    font-size: 120px;
-    opacity: 0.14;
-    pointer-events: none;
-    user-select: none;
-}
-
-.login-decor-1 {
-    top: 6%;
-    left: 6%;
-    transform: rotate(-12deg);
-}
-
-.login-decor-2 {
-    bottom: 8%;
-    right: 7%;
-    transform: rotate(16deg);
-}
-
-.login-decor-3 {
-    bottom: 14%;
-    left: 12%;
-    font-size: 88px;
-    transform: rotate(-8deg);
-}
-
 .login-card {
     position: relative;
     z-index: 1;
@@ -942,10 +915,6 @@ body {
     .drawer-title {
         gap: 6px;
     }
-
-    .login-decor {
-        display: none;
-    }
 }
 
 @media (max-width: 420px) {
@@ -964,211 +933,95 @@ body {
     }
 }
 
-/* ---------- 顾客注册 / 登录补充 ---------- */
-.login-register {
-    margin-top: 14px;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 13px;
-}
-
-.register-card {
-    max-width: 430px;
-}
-
-/* ---------- 顾客点餐页补充 ---------- */
+/* ---------- 点餐页分类导航 ---------- */
 .order-header-actions {
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-.order-header-link {
-    color: #fff;
-    font-size: 13px;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+.order-layout {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
 }
 
-.order-login-tip {
-    margin-bottom: 16px;
-}
-
-.category-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.menu-favorite {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 2;
-    color: #fa541c;
-    background: rgba(255, 255, 255, 0.94);
-    border: none;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
-}
-
-.menu-favorite.is-favorite {
-    color: #f5222d;
-}
-
-.menu-rating-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.menu-rating-row .ant-rate {
-    font-size: 13px;
-}
-
-.menu-rating-text {
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.menu-review-link {
-    padding: 0;
-    height: auto;
-    font-size: 12px;
-}
-
-.review-loading {
-    padding: 40px 0;
-    display: flex;
-    justify-content: center;
-}
-
-.review-list {
+.order-category-sidebar {
+    position: sticky;
+    top: 92px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-}
-
-.review-item {
-    padding: 12px 14px;
+    gap: 6px;
+    padding: 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     background: #fff;
 }
 
-.review-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-}
-
-.review-head .ant-rate {
-    font-size: 14px;
-}
-
-.review-date {
+.order-category-title {
+    padding: 2px 8px 8px;
     color: var(--text-secondary);
     font-size: 12px;
-    margin-left: auto;
+    font-weight: 600;
 }
 
-.review-item p {
-    margin: 0;
-    color: #4b5563;
-    font-size: 13px;
-    line-height: 1.6;
+.order-category-item {
+    padding: 9px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* ---------- 顾客个人中心 ---------- */
-.customer-orders,
-.customer-reviews {
+.order-category-item:hover {
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+.order-category-item.is-active {
+    background: var(--brand-soft);
+    color: var(--brand);
+    font-weight: 600;
+}
+
+.order-menu-sections {
+    min-width: 0;
+}
+
+.menu-category-section {
+    scroll-margin-top: 92px;
+    margin-bottom: 22px;
+}
+
+.menu-category-heading {
+    margin: 0 0 10px;
+    padding-left: 10px;
+    border-left: 4px solid var(--brand);
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.category-manage-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
 }
 
-.customer-order-card,
-.customer-review-card {
-    border-radius: 12px;
-}
-
-.customer-order-head {
+.category-manage-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-}
-
-.customer-order-table {
-    margin-left: 10px;
-    color: var(--text-secondary);
-    font-size: 13px;
-}
-
-.customer-order-time {
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.customer-order-items {
-    border-top: 1px dashed var(--border);
-    border-bottom: 1px dashed var(--border);
-    padding: 8px 0;
-}
-
-.customer-order-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 5px 0;
-    font-size: 13px;
-}
-
-.customer-reviewed {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.customer-reviewed .ant-rate {
-    font-size: 12px;
-}
-
-.customer-item-price {
-    color: var(--text-secondary);
-}
-
-.customer-order-foot {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding-top: 10px;
-    color: var(--text-secondary);
-    font-size: 12px;
-}
-
-.customer-order-foot strong {
-    margin-left: auto;
-    color: var(--brand);
-    font-size: 20px;
-}
-
-.customer-profile-card {
-    border-radius: 12px;
-}
-
-.customer-tabs .ant-tabs-content-holder {
-    min-height: 320px;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
 }
 
 /* ---------- 管理后台统计 / 订单 ---------- */
@@ -1290,19 +1143,32 @@ body {
         gap: 6px;
     }
 
+    .order-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .order-category-sidebar {
+        position: static;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px;
+    }
+
+    .order-category-title {
+        display: none;
+    }
+
+    .order-category-item {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .menu-category-section {
+        scroll-margin-top: 76px;
+    }
+
     .dashboard-chart {
         height: 260px;
-    }
-
-    .customer-order-head {
-        align-items: flex-start;
-    }
-
-    .customer-order-foot {
-        flex-wrap: wrap;
-    }
-
-    .customer-order-foot strong {
-        margin-left: 0;
     }
 }

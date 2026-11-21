@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { App as AntdApp, Button, Dropdown, Space, type MenuProps } from 'antd';
-import {
-    IdcardOutlined,
-    KeyOutlined,
-    LogoutOutlined,
-    UserOutlined,
-} from '@ant-design/icons';
+import { CoffeeOutlined, KeyOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_LABELS } from '../constants';
@@ -26,18 +21,12 @@ export function AppHeader({ title }: AppHeaderProps) {
     }
 
     const menuItems: MenuProps['items'] = [
-        ...(user.role === 'customer'
-            ? [{ key: 'profile', icon: <IdcardOutlined />, label: '个人中心' }]
-            : []),
         { key: 'password', icon: <KeyOutlined />, label: '修改密码' },
         { type: 'divider' },
         { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
     ];
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-        if (key === 'profile') {
-            navigate('/customer');
-        }
         if (key === 'password') {
             setPasswordOpen(true);
         }
@@ -52,7 +41,9 @@ export function AppHeader({ title }: AppHeaderProps) {
         <>
             <header className="app-header">
                 <div className="app-brand">
-                    <span className="brand-logo">🍽️</span>
+                    <span className="brand-logo">
+                        <CoffeeOutlined />
+                    </span>
                     <span className="brand-name">餐厅点餐系统</span>
                     <span className="brand-role">
                         {ROLE_LABELS[user.role]}

@@ -108,6 +108,10 @@ final class Installer
             self::seedUsers($pdo);
         }
 
+        if ((int) $pdo->query('SELECT COUNT(*) FROM menu_categories')->fetchColumn() === 0) {
+            self::seedCategories($pdo);
+        }
+
         if ((int) $pdo->query('SELECT COUNT(*) FROM menu_items')->fetchColumn() === 0) {
             self::seedMenu($pdo);
         }
@@ -126,19 +130,26 @@ final class Installer
 
     private static function seedUsers(PDO $pdo): void
     {
-        $password = hash('sha256', '123456');
+        $password = password_hash('123456', PASSWORD_DEFAULT);
         $users = [
-            ['admin', '店长0001', 'manager', ''],
-            ['chef01', '厨师0001', 'chef', ''],
-            ['cashier01', '收银员0001', 'cashier', ''],
-            ['customer01', '顾客0001', 'customer', '13800000000'],
+            ['admin', '店长0001', 'manager'],
+            ['chef01', '厨师0001', 'chef'],
+            ['cashier01', '收银员0001', 'cashier'],
         ];
 
         $stmt = $pdo->prepare(
-            'INSERT INTO users (username, nickname, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO users (username, nickname, password_hash, role) VALUES (?, ?, ?, ?)'
         );
-        foreach ($users as [$username, $nickname, $role, $phone]) {
-            $stmt->execute([$username, $nickname, $phone, $password, $role]);
+        foreach ($users as [$username, $nickname, $role]) {
+            $stmt->execute([$username, $nickname, $password, $role]);
+        }
+    }
+
+    private static function seedCategories(PDO $pdo): void
+    {
+        $stmt = $pdo->prepare('INSERT INTO menu_categories (name) VALUES (?)');
+        foreach (['热菜', '凉菜', '素菜', '主食', '汤品', '饮品'] as $name) {
+            $stmt->execute([$name]);
         }
     }
 
@@ -148,22 +159,31 @@ final class Installer
             throw new \RuntimeException('无法创建图片存储目录');
         }
 
+        $categoryIds = [];
+        foreach ($pdo->query('SELECT id, name FROM menu_categories') as $row) {
+            $categoryIds[$row['name']] = (int) $row['id'];
+        }
+
         $items = [
-            ['宫保鸡丁', '热菜', '38.00', '花生与鸡丁的经典搭配，酸甜微辣，下饭首选', 'seed-gongbao.svg', '🍗', '#FFF1E6', '#FFBB96'],
-            ['麻婆豆腐', '热菜', '26.00', '麻辣鲜香的嫩豆腐，川味十足', 'seed-mapo.svg', '🌶️', '#FFF0F0', '#FFA39E'],
-            ['鱼香肉丝', '热菜', '32.00', '咸甜酸辣兼备，经典下饭菜', 'seed-yuxiang.svg', '🥩', '#FFF7E6', '#FFD591'],
-            ['清炒时蔬', '素菜', '18.00', '当季新鲜蔬菜，清爽解腻', 'seed-shucai.svg', '🥬', '#F6FFED', '#B7EB8F'],
-            ['凉拌黄瓜', '凉菜', '16.00', '清脆爽口，蒜香开胃', 'seed-huanggua.svg', '🥒', '#F6FFED', '#D9F7BE'],
-            ['番茄蛋汤', '汤品', '12.00', '酸甜开胃的家常靓汤', 'seed-tang.svg', '🍅', '#FFF2F0', '#FFCCC7'],
-            ['米饭', '主食', '2.00', '东北大米，粒粒分明', 'seed-mifan.svg', '🍚', '#FAFAFA', '#D9D9D9'],
-            ['酸梅汤', '饮品', '8.00', '冰镇酸梅汤，解腻消暑', 'seed-suanmei.svg', '🥤', '#F0F5FF', '#ADC6FF'],
+            ['宫保鸡丁', '热菜', '38.00', '花生与鸡丁的经典搭配，酸甜微辣，下饭首选', 'seed-gongbao.svg', '#FFF1E6', '#FFBB96'],
+            ['麻婆豆腐', '热菜', '26.00', '麻辣鲜香的嫩豆腐，川味十足', 'seed-mapo.svg', '#FFF0F0', '#FFA39E'],
+            ['鱼香肉丝', '热菜', '32.00', '咸甜酸辣兼备，经典下饭菜', 'seed-yuxiang.svg', '#FFF7E6', '#FFD591'],
+            ['清炒时蔬', '素菜', '18.00', '当季新鲜蔬菜，清爽解腻', 'seed-shucai.svg', '#F6FFED', '#B7EB8F'],
+            ['凉拌黄瓜', '凉菜', '16.00', '清脆爽口，蒜香开胃', 'seed-huanggua.svg', '#F6FFED', '#D9F7BE'],
+            ['番茄蛋汤', '汤品', '12.00', '酸甜开胃的家常靓汤', 'seed-tang.svg', '#FFF2F0', '#FFCCC7'],
+            ['米饭', '主食', '2.00', '东北大米，粒粒分明', 'seed-mifan.svg', '#FAFAFA', '#D9D9D9'],
+            ['酸梅汤', '饮品', '8.00', '冰镇酸梅汤，解腻消暑', 'seed-suanmei.svg', '#F0F5FF', '#ADC6FF'],
         ];
 
         $insert = $pdo->prepare(
-            'INSERT INTO menu_items (name, category, price, description, image_url) VALUES (?, ?, ?, ?, ?)'
+            'INSERT INTO menu_items (name, category_id, price, description, image_url) VALUES (?, ?, ?, ?, ?)'
         );
 
-        foreach ($items as [$name, $category, $price, $description, $file, $emoji, $background, $accent]) {
+        foreach ($items as [$name, $category, $price, $description, $file, $background, $accent]) {
+            if (!isset($categoryIds[$category])) {
+                throw new \RuntimeException('缺少菜品分类：' . $category);
+            }
+
             $svg = <<<SVG
 <svg xmlns="http://www.w3.org/2000/svg" width="480" height="360" viewBox="0 0 480 360">
   <defs>
@@ -173,20 +193,26 @@ final class Installer
     </linearGradient>
   </defs>
   <rect width="480" height="360" fill="url(#bg)"/>
-  <circle cx="240" cy="178" r="118" fill="{$accent}" opacity="0.35"/>
-  <circle cx="240" cy="178" r="92" fill="#ffffff" opacity="0.55"/>
-  <text x="240" y="182" font-size="132" text-anchor="middle" dominant-baseline="central">{$emoji}</text>
+  <circle cx="240" cy="178" r="118" fill="{$accent}" opacity="0.28"/>
+  <circle cx="240" cy="178" r="92" fill="#ffffff" opacity="0.6"/>
+  <circle cx="240" cy="178" r="66" fill="#ffffff" opacity="0.9"/>
+  <text x="240" y="186" font-family="Microsoft YaHei, sans-serif" font-size="34" text-anchor="middle" dominant-baseline="central" fill="#5b3a2e">{$name}</text>
 </svg>
 SVG;
 
             file_put_contents(UPLOAD_PATH . DIRECTORY_SEPARATOR . $file, $svg);
-            $insert->execute([$name, $category, $price, $description, '/api/uploads/' . $file]);
+            $insert->execute([
+                $name,
+                $categoryIds[$category],
+                $price,
+                $description,
+                '/api/uploads/' . $file,
+            ]);
         }
     }
 
     private static function seedOrders(PDO $pdo): void
     {
-        $customerId = self::idOf($pdo, 'users', 'username', 'customer01');
         $tableIds = [];
         foreach ([1, 2, 3, 4, 5] as $number) {
             $tableIds[$number] = self::idOf($pdo, 'dining_tables', 'name', $number . '桌');
@@ -197,7 +223,7 @@ SVG;
             $menu[$name] = self::idOf($pdo, 'menu_items', 'name', $name);
         }
 
-        if ($customerId === null || in_array(null, $tableIds, true) || in_array(null, $menu, true)) {
+        if (in_array(null, $tableIds, true) || in_array(null, $menu, true)) {
             return;
         }
 
@@ -207,7 +233,6 @@ SVG;
         self::insertOrder(
             $pdo,
             $tableIds[1],
-            $customerId,
             'pending',
             date('Y-m-d H:i:s', $now - 12 * 60),
             null,
@@ -217,26 +242,11 @@ SVG;
             ]
         );
 
-        // 2 桌：今天早些时候的一笔已结账订单（保留历史记录）
+        // 2 桌：已全部做好，等待结账
         self::insertOrder(
             $pdo,
             $tableIds[2],
-            $customerId,
-            'paid',
-            date('Y-m-d H:i:s', $now - 4 * 3600),
-            date('Y-m-d H:i:s', (int) ($now - 3.5 * 3600)),
-            [
-                [$menu['宫保鸡丁'], 1, 1],
-                [$menu['酸梅汤'], 1, 1],
-            ]
-        );
-
-        // 2 桌：已上齐，等待结账
-        self::insertOrder(
-            $pdo,
-            $tableIds[2],
-            $customerId,
-            'served',
+            'pending',
             date('Y-m-d H:i:s', $now - 25 * 60),
             null,
             [
@@ -245,11 +255,10 @@ SVG;
             ]
         );
 
-        // 3 桌：今天已结账，用于统计和评价
-        $order3 = self::insertOrder(
+        // 3 桌：今天已结账，用于统计
+        self::insertOrder(
             $pdo,
             $tableIds[3],
-            $customerId,
             'paid',
             date('Y-m-d H:i:s', $now - 70 * 60),
             date('Y-m-d H:i:s', $now - 55 * 60),
@@ -263,7 +272,6 @@ SVG;
         self::insertOrder(
             $pdo,
             $tableIds[4],
-            $customerId,
             'paid',
             date('Y-m-d H:i:s', $now - 26 * 3600),
             date('Y-m-d H:i:s', $now - 25 * 3600),
@@ -277,7 +285,6 @@ SVG;
         self::insertOrder(
             $pdo,
             $tableIds[5],
-            $customerId,
             'paid',
             date('Y-m-d H:i:s', $now - 3 * 86400),
             date('Y-m-d H:i:s', $now - 3 * 86400 + 900),
@@ -286,26 +293,6 @@ SVG;
                 [$menu['酸梅汤'], 2, 1],
             ]
         );
-
-        // 评价与收藏
-        $pdo->prepare(
-            'INSERT INTO reviews (order_id, user_id, menu_item_id, rating, content, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([
-            $order3,
-            $customerId,
-            $menu['鱼香肉丝'],
-            5,
-            '鱼香肉丝很下饭，汤也很热乎，出餐速度不错。',
-            date('Y-m-d H:i:s', $now - 40 * 60),
-        ]);
-
-        $pdo->prepare(
-            'INSERT INTO favorites (user_id, menu_item_id) VALUES (?, ?)'
-        )->execute([$customerId, $menu['宫保鸡丁']]);
-        $pdo->prepare(
-            'INSERT INTO favorites (user_id, menu_item_id) VALUES (?, ?)'
-        )->execute([$customerId, $menu['酸梅汤']]);
     }
 
     /**
@@ -314,18 +301,16 @@ SVG;
     private static function insertOrder(
         PDO $pdo,
         int $tableId,
-        int $customerId,
         string $status,
         string $createdAt,
         ?string $paidAt,
         array $items
     ): int {
         $pdo->prepare(
-            'INSERT INTO orders (table_id, customer_id, status, created_at, updated_at, paid_at, pending_table_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO orders (table_id, status, created_at, updated_at, paid_at, pending_table_id)
+             VALUES (?, ?, ?, ?, ?, ?)'
         )->execute([
             $tableId,
-            $customerId,
             $status,
             $createdAt,
             $paidAt ?? $createdAt,

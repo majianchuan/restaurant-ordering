@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { App as AntdApp, Button, Card, Form, Input, Typography } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { CoffeeOutlined, LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_HOME } from '../constants';
 import { getErrorMessage } from '../api/client';
@@ -36,19 +36,15 @@ export function LoginPage() {
 
     return (
         <div className="login-page">
-            <span className="login-decor login-decor-1">🍜</span>
-            <span className="login-decor login-decor-2">🥢</span>
-            <span className="login-decor login-decor-3">🍵</span>
-
             <Card className="login-card" bordered={false}>
                 <div className="login-brand">
-                    <span className="login-logo">🍽️</span>
+                    <span className="login-logo">
+                        <CoffeeOutlined />
+                    </span>
                     <Typography.Title level={2} className="login-title">
                         餐厅点餐系统
                     </Typography.Title>
-                    <span className="login-subtitle">
-                        店长 · 厨师 · 收银员 · 顾客 登录入口
-                    </span>
+                    <span className="login-subtitle">店长 · 厨师 · 收银员 登录入口</span>
                 </div>
 
                 <Form
@@ -96,14 +92,10 @@ export function LoginPage() {
                     </Button>
                 </Form>
 
-                <div className="login-register">
-                    没有顾客账号？<Link to="/register">立即注册</Link>
-                </div>
-
                 <div className="login-hint">
-                    <div>演示账号：admin / chef01 / cashier01 / customer01</div>
-                    <div>初始密码均为 123456；顾客可扫码免登录点餐</div>
-                    <div>登录后可在个人中心查看订单、收藏和评价</div>
+                    <div>演示账号：admin / chef01 / cashier01</div>
+                    <div>初始密码均为 123456</div>
+                    <div>顾客无需登录，扫描餐桌二维码即可点餐</div>
                 </div>
             </Card>
         </div>

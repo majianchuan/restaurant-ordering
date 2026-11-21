@@ -16,7 +16,6 @@ final class UserController
         'manager' => '店长',
         'chef' => '厨师',
         'cashier' => '收银员',
-        'customer' => '顾客',
     ];
 
     /**
@@ -29,7 +28,7 @@ final class UserController
         $where = [];
         $params = [];
 
-        if (in_array($role, ['manager', 'chef', 'cashier', 'customer'], true)) {
+        if (in_array($role, ['manager', 'chef', 'cashier'], true)) {
             $where[] = 'role = ?';
             $params[] = $role;
         }
@@ -39,11 +38,11 @@ final class UserController
             $params[] = '%' . $keyword . '%';
         }
 
-        $sql = 'SELECT id, username, nickname, phone, role, created_at FROM users';
+        $sql = 'SELECT id, username, nickname, role, created_at FROM users';
         if ($where !== []) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
-        $sql .= " ORDER BY FIELD(role, 'manager', 'chef', 'cashier', 'customer'), id";
+        $sql .= " ORDER BY FIELD(role, 'manager', 'chef', 'cashier'), id";
 
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
@@ -92,10 +91,10 @@ final class UserController
         }
 
         $pdo->prepare('INSERT INTO users (username, nickname, password_hash, role) VALUES (?, ?, ?, ?)')
-            ->execute([$username, $nickname, hash('sha256', $password), $role]);
+            ->execute([$username, $nickname, password_hash($password, PASSWORD_DEFAULT), $role]);
 
         $id = (int) $pdo->lastInsertId();
-        $stmt = $pdo->prepare('SELECT id, username, nickname, phone, role, created_at FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT id, username, nickname, role, created_at FROM users WHERE id = ?');
         $stmt->execute([$id]);
 
         return self::map($stmt->fetch());
@@ -141,7 +140,6 @@ final class UserController
             'id' => (int) $row['id'],
             'username' => $row['username'],
             'nickname' => $row['nickname'],
-            'phone' => $row['phone'] ?? '',
             'role' => $row['role'],
             'roleLabel' => self::ROLE_LABELS[$row['role']] ?? $row['role'],
             'createdAt' => $row['created_at'] ?? null,

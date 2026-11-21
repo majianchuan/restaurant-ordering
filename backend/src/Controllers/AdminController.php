@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Database;
-use App\Http\HttpException;
 
 final class AdminController
 {
@@ -25,20 +24,18 @@ final class AdminController
         $where = [];
         $params = [];
 
-        if (in_array($status, ['pending', 'served', 'paid'], true)) {
+        if (in_array($status, ['pending', 'paid'], true)) {
             $where[] = 'o.status = ?';
             $params[] = $status;
         }
 
         if ($keyword !== '') {
             if (ctype_digit($keyword)) {
-                $where[] = '(o.id = ? OR t.name LIKE ? OR u.nickname LIKE ?)';
+                $where[] = '(o.id = ? OR t.name LIKE ?)';
                 $params[] = (int) $keyword;
                 $params[] = '%' . $keyword . '%';
-                $params[] = '%' . $keyword . '%';
             } else {
-                $where[] = '(t.name LIKE ? OR u.nickname LIKE ?)';
-                $params[] = '%' . $keyword . '%';
+                $where[] = 't.name LIKE ?';
                 $params[] = '%' . $keyword . '%';
             }
         }
@@ -46,24 +43,22 @@ final class AdminController
         $whereSql = $where === [] ? '' : ' WHERE ' . implode(' AND ', $where);
 
         $countSql = 'SELECT COUNT(*) FROM orders o
-                     INNER JOIN dining_tables t ON t.id = o.table_id
-                     LEFT JOIN users u ON u.id = o.customer_id' . $whereSql;
+                     INNER JOIN dining_tables t ON t.id = o.table_id' . $whereSql;
         $stmt = Database::pdo()->prepare($countSql);
         $stmt->execute($params);
         $total = (int) $stmt->fetchColumn();
 
         $offset = ($page - 1) * $pageSize;
-        $sql = "SELECT o.id, o.status, o.created_at, o.paid_at, o.customer_id,
-                       t.name AS table_name, u.nickname AS customer_name,
+        $sql = "SELECT o.id, o.status, o.created_at, o.paid_at,
+                       t.name AS table_name,
                        COALESCE(SUM(oi.quantity * m.price), 0) AS total_amount,
                        COALESCE(SUM(oi.quantity), 0) AS total_quantity
                 FROM orders o
                 INNER JOIN dining_tables t ON t.id = o.table_id
-                LEFT JOIN users u ON u.id = o.customer_id
                 LEFT JOIN order_items oi ON oi.order_id = o.id
                 LEFT JOIN menu_items m ON m.id = oi.menu_item_id
                 {$whereSql}
-                GROUP BY o.id, o.status, o.created_at, o.paid_at, o.customer_id, t.name, u.nickname
+                GROUP BY o.id, o.status, o.created_at, o.paid_at, t.name
                 ORDER BY o.id DESC
                 LIMIT {$pageSize} OFFSET {$offset}";
 
@@ -74,7 +69,6 @@ final class AdminController
             'id' => (int) $row['id'],
             'status' => $row['status'],
             'tableName' => $row['table_name'],
-            'customerName' => $row['customer_name'],
             'totalAmount' => number_format((float) $row['total_amount'], 2, '.', ''),
             'totalQuantity' => (int) $row['total_quantity'],
             'createdAt' => $row['created_at'],
@@ -123,11 +117,7 @@ final class AdminController
         )->fetchColumn();
 
         $activeOrders = (int) $pdo->query(
-            "SELECT COUNT(*) FROM orders WHERE status IN ('pending', 'served')"
-        )->fetchColumn();
-
-        $customers = (int) $pdo->query(
-            "SELECT COUNT(*) FROM users WHERE role = 'customer'"
+            "SELECT COUNT(*) FROM orders WHERE status = 'pending'"
         )->fetchColumn();
 
         $menuCount = (int) $pdo->query(
@@ -135,6 +125,9 @@ final class AdminController
         )->fetchColumn();
 
         $tableCount = (int) $pdo->query('SELECT COUNT(*) FROM dining_tables')->fetchColumn();
+        $categoryCount = (int) $pdo->query(
+            'SELECT COUNT(*) FROM menu_categories WHERE is_active = 1'
+        )->fetchColumn();
 
         $stmt = $pdo->query(
             "SELECT DATE(o.paid_at) AS day,
@@ -178,23 +171,7 @@ final class AdminController
              LIMIT 5"
         )->fetchAll());
 
-        $recentReviews = array_map(static fn (array $row): array => [
-            'id' => (int) $row['id'],
-            'rating' => (int) $row['rating'],
-            'content' => $row['content'],
-            'menuName' => $row['menu_name'],
-            'nickname' => $row['nickname'],
-            'createdAt' => $row['created_at'],
-        ], $pdo->query(
-            'SELECT r.id, r.rating, r.content, r.created_at, m.name AS menu_name, u.nickname
-             FROM reviews r
-             INNER JOIN menu_items m ON m.id = r.menu_item_id
-             INNER JOIN users u ON u.id = r.user_id
-             ORDER BY r.id DESC
-             LIMIT 5'
-        )->fetchAll());
-
-        $statusCounts = ['pending' => 0, 'served' => 0, 'paid' => 0];
+        $statusCounts = ['pending' => 0, 'paid' => 0];
         foreach ($pdo->query('SELECT status, COUNT(*) AS total FROM orders GROUP BY status')->fetchAll() as $row) {
             $statusCounts[$row['status']] = (int) $row['total'];
         }
@@ -204,17 +181,15 @@ final class AdminController
                 'revenue' => number_format($todayRevenue, 2, '.', ''),
                 'orders' => $todayOrders,
                 'activeOrders' => $activeOrders,
-                'customers' => $customers,
             ],
             'counts' => [
                 'menu' => $menuCount,
                 'tables' => $tableCount,
-                'customers' => $customers,
+                'categories' => $categoryCount,
             ],
             'statusCounts' => $statusCounts,
             'week' => $week,
             'topDishes' => $topDishes,
-            'recentReviews' => $recentReviews,
         ];
     }
 }

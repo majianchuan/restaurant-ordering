@@ -26,7 +26,7 @@ try {
         STDOUT,
         '数据库初始化完成（数据库：' . Config::require('DB_DATABASE') . "）\n"
     );
-    fwrite(STDOUT, "演示账号：admin / chef01 / cashier01 / customer01，密码均为 123456\n");
+    fwrite(STDOUT, "演示账号：admin / chef01 / cashier01，密码均为 123456\n");
 } catch (Throwable $exception) {
     fwrite(STDERR, '数据库初始化失败：' . $exception->getMessage() . "\n");
     exit(1);

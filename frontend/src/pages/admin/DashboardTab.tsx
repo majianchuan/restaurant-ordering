@@ -6,7 +6,6 @@ import {
     Col,
     Empty,
     Progress,
-    Rate,
     Row,
     Spin,
     Statistic,
@@ -125,7 +124,7 @@ export function DashboardTab() {
                 <div>
                     <h2>经营概览</h2>
                     <span className="toolbar-subtitle">
-                        数据来自订单、菜品与评价表，实时查询
+                        数据来自订单、菜品与分类表，实时查询
                     </span>
                 </div>
                 <Button icon={<ReloadOutlined />} onClick={() => void load()}>
@@ -163,9 +162,9 @@ export function DashboardTab() {
                 <Col xs={12} md={6}>
                     <Card className="stat-card">
                         <Statistic
-                            title="注册顾客"
-                            value={stats.today.customers}
-                            suffix="人"
+                            title="菜品分类"
+                            value={stats.counts.categories}
+                            suffix="类"
                             valueStyle={{ color: '#1677ff' }}
                         />
                     </Card>
@@ -211,29 +210,7 @@ export function DashboardTab() {
             </Row>
 
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col xs={24} lg={15}>
-                    <Card title="最新评价" className="dashboard-card">
-                        {stats.recentReviews.length === 0 ? (
-                            <Empty description="暂无顾客评价" />
-                        ) : (
-                            <div className="review-list">
-                                {stats.recentReviews.map((review) => (
-                                    <div className="review-item" key={review.id}>
-                                        <div className="review-head">
-                                            <strong>{review.nickname}</strong>
-                                            <Rate disabled value={review.rating} />
-                                            <span className="review-date">
-                                                {review.menuName}
-                                            </span>
-                                        </div>
-                                        <p>{review.content || '该顾客没有填写文字评价'}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </Card>
-                </Col>
-                <Col xs={24} lg={9}>
+                <Col xs={24}>
                     <Card title="经营数据" className="dashboard-card">
                         <div className="dashboard-counts">
                             <div>
@@ -245,13 +222,12 @@ export function DashboardTab() {
                                 <b>{stats.counts.tables}</b>
                             </div>
                             <div>
-                                <span>注册顾客</span>
-                                <b>{stats.counts.customers}</b>
+                                <span>菜品分类</span>
+                                <b>{stats.counts.categories}</b>
                             </div>
                         </div>
                         <div className="status-counts">
-                            <Tag color="orange">待制作 {stats.statusCounts.pending}</Tag>
-                            <Tag color="green">待结账 {stats.statusCounts.served}</Tag>
+                            <Tag color="orange">未结账 {stats.statusCounts.pending}</Tag>
                             <Tag>已结账 {stats.statusCounts.paid}</Tag>
                         </div>
                     </Card>

@@ -5,12 +5,10 @@ import type {
     CreateUserPayload,
     DiningTable,
     LoginResponse,
+    MenuCategory,
     MenuItem,
     MenuItemPayload,
     Order,
-    ProfilePayload,
-    RegisterPayload,
-    Review,
     StaffAccount,
     StatsResponse,
     TableOrderResponse,
@@ -84,16 +82,8 @@ export const authApi = {
         const { data } = await api.post<LoginResponse>('/auth/login', { username, password });
         return data;
     },
-    register: async (payload: RegisterPayload): Promise<LoginResponse> => {
-        const { data } = await api.post<LoginResponse>('/auth/register', payload);
-        return data;
-    },
     me: async (): Promise<User> => {
         const { data } = await api.get<User>('/auth/me');
-        return data;
-    },
-    updateProfile: async (payload: ProfilePayload): Promise<User> => {
-        const { data } = await api.patch<User>('/profile', payload);
         return data;
     },
     changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
@@ -134,17 +124,24 @@ export const tableApi = {
 };
 
 export const menuApi = {
-    list: async (params: { category?: string; keyword?: string } = {}): Promise<MenuItem[]> => {
+    list: async (params: { categoryId?: number; keyword?: string } = {}): Promise<MenuItem[]> => {
         const { data } = await api.get<MenuItem[]>(`/menu${queryString(params)}`);
         return data;
     },
-    categories: async (): Promise<string[]> => {
-        const { data } = await api.get<string[]>('/menu/categories');
+    categories: async (): Promise<MenuCategory[]> => {
+        const { data } = await api.get<MenuCategory[]>('/menu/categories');
         return data;
     },
-    reviews: async (menuItemId: number): Promise<Review[]> => {
-        const { data } = await api.get<Review[]>(`/menu/${menuItemId}/reviews`);
+    createCategory: async (name: string): Promise<MenuCategory> => {
+        const { data } = await api.post<MenuCategory>('/menu/categories', { name });
         return data;
+    },
+    updateCategory: async (id: number, name: string): Promise<MenuCategory> => {
+        const { data } = await api.put<MenuCategory>(`/menu/categories/${id}`, { name });
+        return data;
+    },
+    removeCategory: async (id: number): Promise<void> => {
+        await api.delete(`/menu/categories/${id}`);
     },
     create: async (payload: MenuItemPayload): Promise<MenuItem> => {
         const { data } = await api.post<MenuItem>('/menu', payload);
@@ -186,32 +183,6 @@ export const orderApi = {
     },
     pay: async (id: number): Promise<Order> => {
         const { data } = await api.post<Order>(`/orders/${id}/pay`);
-        return data;
-    },
-};
-
-export const customerApi = {
-    myOrders: async (): Promise<Order[]> => {
-        const { data } = await api.get<Order[]>('/my/orders');
-        return data;
-    },
-    favorites: async (): Promise<MenuItem[]> => {
-        const { data } = await api.get<MenuItem[]>('/my/favorites');
-        return data;
-    },
-    toggleFavorite: async (menuItemId: number): Promise<{ favorited: boolean }> => {
-        const { data } = await api.post<{ favorited: boolean }>(`/my/favorites/${menuItemId}`);
-        return data;
-    },
-    myReviews: async (): Promise<Review[]> => {
-        const { data } = await api.get<Review[]>('/my/reviews');
-        return data;
-    },
-    createReview: async (
-        orderId: number,
-        payload: { menuItemId: number; rating: number; content: string }
-    ): Promise<Review> => {
-        const { data } = await api.post<Review>(`/my/orders/${orderId}/reviews`, payload);
         return data;
     },
 };

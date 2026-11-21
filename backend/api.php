@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
-use App\Controllers\CustomerController;
 use App\Controllers\MenuController;
 use App\Controllers\OrderController;
 use App\Controllers\TableController;
@@ -32,10 +31,8 @@ $router = new Router();
 
 // 认证
 $router->add('POST', '/api/auth/login', [AuthController::class, 'login']);
-$router->add('POST', '/api/auth/register', [AuthController::class, 'register']);
-$router->add('GET', '/api/auth/me', [AuthController::class, 'me'], ['manager', 'chef', 'cashier', 'customer']);
-$router->add('POST', '/api/auth/password', [AuthController::class, 'changePassword'], ['manager', 'chef', 'cashier', 'customer']);
-$router->add('PATCH', '/api/profile', [AuthController::class, 'updateProfile'], ['manager', 'chef', 'cashier', 'customer']);
+$router->add('GET', '/api/auth/me', [AuthController::class, 'me'], ['manager', 'chef', 'cashier']);
+$router->add('POST', '/api/auth/password', [AuthController::class, 'changePassword'], ['manager', 'chef', 'cashier']);
 
 // 账户管理（店长）
 $router->add('GET', '/api/users', [UserController::class, 'index'], ['manager']);
@@ -49,10 +46,12 @@ $router->add('POST', '/api/tables', [TableController::class, 'store'], ['manager
 $router->add('PATCH', '/api/tables/{id}', [TableController::class, 'update'], ['manager']);
 $router->add('DELETE', '/api/tables/{id}', [TableController::class, 'destroy'], ['manager']);
 
-// 菜单
-$router->add('GET', '/api/menu', [MenuController::class, 'index']);
+// 菜品分类与菜单
 $router->add('GET', '/api/menu/categories', [MenuController::class, 'categories']);
-$router->add('GET', '/api/menu/{id}/reviews', [MenuController::class, 'reviews']);
+$router->add('POST', '/api/menu/categories', [MenuController::class, 'storeCategory'], ['manager']);
+$router->add('PUT', '/api/menu/categories/{id}', [MenuController::class, 'updateCategory'], ['manager']);
+$router->add('DELETE', '/api/menu/categories/{id}', [MenuController::class, 'destroyCategory'], ['manager']);
+$router->add('GET', '/api/menu', [MenuController::class, 'index']);
 $router->add('POST', '/api/menu', [MenuController::class, 'store'], ['manager']);
 $router->add('PUT', '/api/menu/{id}', [MenuController::class, 'update'], ['manager']);
 $router->add('DELETE', '/api/menu/{id}', [MenuController::class, 'destroy'], ['manager']);
@@ -66,13 +65,6 @@ $router->add('GET', '/api/orders/table/{code}', [OrderController::class, 'tableO
 $router->add('PUT', '/api/orders/table/{code}', [OrderController::class, 'submit']);
 $router->add('PATCH', '/api/order-items/{id}', [OrderController::class, 'toggleItem'], ['chef']);
 $router->add('POST', '/api/orders/{id}/pay', [OrderController::class, 'pay'], ['cashier']);
-
-// 顾客个人中心
-$router->add('GET', '/api/my/orders', [OrderController::class, 'myOrders'], ['customer']);
-$router->add('GET', '/api/my/favorites', [CustomerController::class, 'favorites'], ['customer']);
-$router->add('POST', '/api/my/favorites/{id}', [CustomerController::class, 'toggleFavorite'], ['customer']);
-$router->add('GET', '/api/my/reviews', [CustomerController::class, 'myReviews'], ['customer']);
-$router->add('POST', '/api/my/orders/{id}/reviews', [CustomerController::class, 'createReview'], ['customer']);
 
 // 管理后台：订单检索与统计
 $router->add('GET', '/api/admin/orders', [AdminController::class, 'orders'], ['manager']);

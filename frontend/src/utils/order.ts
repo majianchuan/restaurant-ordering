@@ -17,7 +17,7 @@ export function getTableStatus(order: Order | null): TableStatus {
         return { key: 'paid', label: '已结账', color: 'default' };
     }
 
-    if (order.status === 'served' || order.undoneCount === 0) {
+    if (order.undoneCount === 0) {
         return { key: 'ready', label: '已上齐', color: 'green' };
     }
 
